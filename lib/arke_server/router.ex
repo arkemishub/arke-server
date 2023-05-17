@@ -73,11 +73,13 @@ defmodule ArkeServer.Router do
     # ↓ Auth endpoint (no access token)
 
     # -------- PROJECT --------
+
     scope "/arke_project" do
       get("/unit", ProjectController, :get_all_unit)
       get("/unit/:unit_id", ProjectController, :get_unit)
-      put("/arke_project/unit/:unit_id", ProjectController, :update)
-      delete("/arke_project/unit/:unit_id", ProjectController, :delete)
+      put("/unit/:unit_id", ProjectController, :update)
+      post("/unit", ProjectController, :create)
+      delete("/unit/:unit_id", ProjectController, :delete)
     end
 
     # ↑ Do not need arke-project-key
@@ -90,7 +92,6 @@ defmodule ArkeServer.Router do
     put("/:arke_id/unit/:unit_id", UnitController, :update)
 
     # -------- POST --------
-    post("/arke_project/unit", ProjectController, :create)
 
     post("/:arke_id/unit", ArkeController, :create)
 
