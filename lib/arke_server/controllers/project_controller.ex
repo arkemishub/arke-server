@@ -79,7 +79,7 @@ defmodule ArkeServer.ProjectController do
   @doc """
        Get a units of arke_project
        """ && false
-  def index(conn, %{}) do
+  def get_all_unit(conn, %{}) do
     arke_list = QueryManager.filter_by(project: :arke_system, arke: :arke_project)
     ResponseManager.send_resp(conn, 200, %{items: StructManager.encode(arke_list, type: :json)})
   end
@@ -87,7 +87,7 @@ defmodule ArkeServer.ProjectController do
   @doc """
        It returns a unit
        """ && false
-  def show(conn, %{"unit_id" => unit_id}) do
+  def get_unit(conn, %{"unit_id" => unit_id}) do
     arke = ArkeManager.get(:arke_project, :arke_system)
     unit = QueryManager.get_by(project: :arke_system, arke: arke, id: unit_id)
     ResponseManager.send_resp(conn, 200, %{content: StructManager.encode(unit, type: :json)})
