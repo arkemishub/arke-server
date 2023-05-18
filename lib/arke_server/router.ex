@@ -33,6 +33,10 @@ defmodule ArkeServer.Router do
     plug(ArkeServer.Plugs.BuildFilters)
   end
 
+  pipeline :get_unit do
+    plug(ArkeServer.Plugs.GetUnit)
+  end
+
   pipeline :openapi do
     plug(OpenApiSpex.Plug.PutApiSpec, module: ArkeServer.ApiSpec)
   end
@@ -86,6 +90,15 @@ defmodule ArkeServer.Router do
     pipe_through([:project])
     # ↓ Must have arke-project-key
 
+    # GROUP
+    scope "/group/:group_id" do
+      get("/arke", GroupController, :get_arke)
+      get("/struct", GroupController, :struct)
+      get("/unit", GroupController, :get_unit)
+      get("/unit/:unit_id", GroupController, :unit_detail)
+    end
+
+    pipe_through([:get_unit])
     # -------- PUT --------
 
     # UNIT
@@ -136,14 +149,6 @@ defmodule ArkeServer.Router do
           get("/struct", StructController, :get_unit_struct)
         end
       end
-    end
-
-    # GROUP
-    scope "/group/:group_id" do
-      get("/arke", GroupController, :get_arke)
-      get("/struct", GroupController, :struct)
-      get("/unit", GroupController, :get_unit)
-      get("/unit/:unit_id", GroupController, :unit_detail)
     end
 
     # GLOBAL SEARCH

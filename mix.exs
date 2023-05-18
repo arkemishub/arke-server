@@ -49,7 +49,7 @@ defmodule ArkeServer.MixProject do
       {:guardian, "~> 2.2.3"},
       {:corsica, "~> 1.2"},
       {:ex_doc, "~> 0.28", only: :dev, runtime: false},
-      {:open_api_spex, "~> 3.16", only: :dev},
+      {:open_api_spex, "~> 3.16"},
       {:ymlr, "~> 2.0", only: :dev},
       # {:ecto_sql, "~> 3.8.3", only: :test},
       {:excoveralls, "~> 0.10", only: :test},

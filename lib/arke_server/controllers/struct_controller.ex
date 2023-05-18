@@ -25,8 +25,6 @@ defmodule ArkeServer.StructController do
 
   alias OpenApiSpex.{Operation, Reference}
 
-  plug(ArkeServer.Plugs.GetUnit)
-
   # ------- start OPENAPI spec -------
 
   def open_api_operation(action) do

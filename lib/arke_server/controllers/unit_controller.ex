@@ -100,7 +100,6 @@ defmodule ArkeServer.UnitController do
         "arke_id" => _arke_id
       }) do
     project = conn.assigns[:arke_project]
-
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
 

@@ -28,8 +28,6 @@ defmodule ArkeServer.ArkeController do
 
   alias OpenApiSpex.{Operation, Reference}
 
-  plug(ArkeServer.Plugs.GetUnit)
-
   # ------- start OPENAPI spec -------
   def open_api_operation(action) do
     operation = String.to_existing_atom("#{action}_operation")
