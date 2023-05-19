@@ -59,7 +59,7 @@ defmodule ArkeServer.GroupController do
         %Reference{"$ref": "#/components/parameters/limit"},
         %Reference{"$ref": "#/components/parameters/offset"},
         %Reference{"$ref": "#/components/parameters/order"},
-        %Reference{"$ref": "#/components/parameters/filter"},
+        %Reference{"$ref": "#/components/parameters/filter"}
       ],
       security: [%{"authorization" => []}],
       responses: Responses.get_responses([201, 204])
@@ -78,7 +78,7 @@ defmodule ArkeServer.GroupController do
         %Reference{"$ref": "#/components/parameters/limit"},
         %Reference{"$ref": "#/components/parameters/offset"},
         %Reference{"$ref": "#/components/parameters/order"},
-        %Reference{"$ref": "#/components/parameters/filter"},
+        %Reference{"$ref": "#/components/parameters/filter"}
       ],
       security: [%{"authorization" => []}],
       responses: Responses.get_responses([201, 204])
