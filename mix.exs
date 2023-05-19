@@ -94,7 +94,10 @@ defmodule ArkeServer.MixProject do
       name: "arke_server",
       # These are the default files included in the package
       licenses: ["Apache-2.0"],
-      links: %{}
+      links: %{
+        "Website" => "https://arkehub.com",
+        "Github" => "https://github.com/arkemishub/arke-server"
+      }
     ]
   end
 end
