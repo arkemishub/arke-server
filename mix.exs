@@ -4,7 +4,7 @@ defmodule ArkeServer.MixProject do
   def project do
     [
       app: :arke_server,
-      version: "0.1.1",
+      version: "0.1.2",
       build_path: "./_build",
       config_path: "./config/config.exs",
       deps_path: "./deps",
@@ -54,22 +54,9 @@ defmodule ArkeServer.MixProject do
       # {:ecto_sql, "~> 3.8.3", only: :test},
       {:excoveralls, "~> 0.10", only: :test},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      get_arke(Mix.env())
+      {:arke, "~> 0.1.3"},
+      {:arke_auth, "~> 0.1.2"}
     ])
-  end
-
-  defp get_arke(:dev) do
-    [
-      {:arke, in_umbrella: true},
-      {:arke_auth, in_umbrella: true}
-    ]
-  end
-
-  defp get_arke(_env) do
-    [
-      {:arke, "~> 0.1.2"},
-      {:arke_auth, "~> 0.1.1"}
-    ]
   end
 
   defp aliases do
