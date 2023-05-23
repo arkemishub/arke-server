@@ -46,9 +46,14 @@ defmodule ArkeServer.Plugs.GetUnit do
   end
 
   defp get_unit(conn, project, arke_id, unit_id) do
-    case QueryManager.get_by(project: project, arke: arke_id, id: unit_id) do
-      nil -> nil
-      unit -> unit
+    try do
+      case QueryManager.get_by(project: project, arke: arke_id, id: unit_id) do
+        nil -> nil
+        unit -> unit
+      end
+    rescue
+      _ ->
+        not_found(conn)
     end
   end
 
@@ -77,11 +82,15 @@ defmodule ArkeServer.Plugs.GetUnit do
   defp parse_unit(conn, unit) do
     case unit do
       nil ->
-        ArkeServer.ResponseManager.send_resp(conn, 404, nil)
-        |> Plug.Conn.halt()
+        not_found(conn)
 
       _ ->
         assign(conn, :unit, unit)
     end
+  end
+
+  defp not_found(conn) do
+    ArkeServer.ResponseManager.send_resp(conn, 404, nil)
+    |> Plug.Conn.halt()
   end
 end
