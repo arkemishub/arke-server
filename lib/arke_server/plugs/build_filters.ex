@@ -90,7 +90,7 @@ defmodule ArkeServer.Plugs.BuildFilters do
     parameter = Arke.Boundary.ParameterManager.get(parameter, project)
     # TODO handle if parameter not valid
     test = Validator.validate_parameter(nil, parameter.id, value, :arke_system)
-    QueryManager.condition(parameter.id, operator, value, negate)
+    QueryManager.condition(parameter, operator, value, negate)
   end
 
   defp remove_match(match, str) do
