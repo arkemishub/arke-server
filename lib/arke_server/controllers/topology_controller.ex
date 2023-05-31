@@ -144,15 +144,15 @@ defmodule ArkeServer.TopologyController do
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
 
-    configuration =
-      with true <- Map.has_key?(params, "configuration"),
-           do: params["configuration"],
+    metadata =
+      with true <- Map.has_key?(params, "metadata"),
+           do: params["metadata"],
            else: (_ -> %{})
 
     parent = QueryManager.get_by(project: project, arke: arke_id, id: parent_id)
     child = QueryManager.get_by(project: project, arke: arke_id_two, id: child_id)
 
-    LinkManager.add_node(project, parent, child, type, configuration)
+    LinkManager.add_node(project, parent, child, type, metadata)
     |> case do
       {:ok, unit} ->
         ResponseManager.send_resp(
@@ -179,12 +179,12 @@ defmodule ArkeServer.TopologyController do
     project = conn.assigns[:arke_project]
     # link arke is only in :arke_system so it won't be changed right now
     #    link = ArkeManager.get :arke_link, :arke_system
-    configuration =
-      with true <- Map.has_key?(params, "configuration"),
-           do: params["configuration"],
+    metadata =
+      with true <- Map.has_key?(params, "metadata"),
+           do: params["metadata"],
            else: (_ -> %{})
 
-    with {:ok, nil} <- LinkManager.delete_node(project, parent, child, type, configuration) do
+    with {:ok, nil} <- LinkManager.delete_node(project, parent, child, type, metadata) do
       ResponseManager.send_resp(conn, 204)
     else
       _ -> ResponseManager.send_resp(conn, 500, "")
@@ -197,14 +197,14 @@ defmodule ArkeServer.TopologyController do
   def add_parameter(conn, %{
         "arke_parameter_id" => parameter_id,
         "arke_id" => arke_id,
-        "configuration" => configuration
+        "metadata" => metadata
       }) do
     project = conn.assigns[:arke_project]
 
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
 
-    LinkManager.add_node(project, arke_id, parameter_id, "parameter", configuration)
+    LinkManager.add_node(project, arke_id, parameter_id, "parameter", metadata)
     |> case do
       {:ok, unit} ->
         ResponseManager.send_resp(conn, 201, %{

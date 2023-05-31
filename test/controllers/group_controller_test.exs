@@ -17,7 +17,7 @@ defmodule ArkeServer.GroupControllerTest do
            |> Arke.QueryManager.filter(:parent_id, :eq, parent, false)
            |> Arke.QueryManager.filter(:child_id, :eq, child, false)
            |> Arke.QueryManager.filter(:type, :eq, type, false)
-           |> Arke.QueryManager.filter(:configuration, :eq, metadata, false)
+           |> Arke.QueryManager.filter(:metadata, :eq, metadata, false)
            |> Arke.QueryManager.one() do
       Arke.QueryManager.delete(:test_schema, link)
       :ok
