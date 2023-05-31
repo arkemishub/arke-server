@@ -126,10 +126,10 @@ defmodule ArkeServer.Router do
     delete("/:arke_id/unit/:unit_id", ArkeController, :delete)
 
     # -------- PARAMETER --------
-    get("/parameter/:parameter_id", UnitController, :get_parameter_value)
-    post("/parameter/:parameter_id", UnitController, :add_link_parameter_value)
-    put("/parameter/:parameter_id", UnitController, :update_parameter_value)
-    delete("/parameter/:parameter_id/:unit_id", UnitController, :remove_link_parameter_value)
+    get("/parameter/:parameter_id", ParameterController, :get_parameter_value)
+    post("/parameter/:parameter_id", ParameterController, :add_link_parameter_value)
+    put("/parameter/:parameter_id", ParameterController, :update_parameter_value)
+    delete("/parameter/:parameter_id/:unit_id", ParameterController, :remove_link_parameter_value)
 
     # -------- GET --------
 
