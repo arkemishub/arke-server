@@ -55,15 +55,14 @@ defmodule ArkeServer.MixProject do
       {:excoveralls, "~> 0.10", only: :test},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:arke, "~> 0.1.5"},
+      {:arke_postgres, "~> 0.1.8", only: :test},
       {:arke_auth, "~> 0.1.4"}
     ])
   end
 
   defp aliases do
     [
-      test: [
-        "test"
-      ],
+      test: ["ecto.create --quiet", "ecto.migrate", "test"],
       "test.ci": [
         "test"
       ],
