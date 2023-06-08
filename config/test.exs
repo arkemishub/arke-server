@@ -12,8 +12,6 @@ config :arke,
     }
   }
 
-config :arke_server, ArkeServer.Endpoint, server: true
-
 config :arke_auth, ArkeAuth.Guardian,
   issuer: "arke_auth",
   secret_key: "5hyuhkszkm8jilkDxrXGTBz1z1KJk5dtVwLgLOXHQRsPEtxii3wFcAbx4Gtj1aQB",
