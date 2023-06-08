@@ -53,6 +53,7 @@ defmodule ArkeServer.UnitControllerTest do
 
     test "gt", %{auth_conn: conn} = _context do
       filter = "filter=and(gt(integer_support,4),gt(float_support,10.0))"
+
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -77,7 +78,6 @@ defmodule ArkeServer.UnitControllerTest do
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
-      IO.inspect(List.first(json_body["content"]["items"])["integer_support"])
 
       assert List.first(json_body["content"]["items"])["integer_support"] < 10 == true
       assert List.first(json_body["content"]["items"])["float_support"] < 8.5 == true
@@ -167,9 +167,11 @@ defmodule ArkeServer.UnitControllerTest do
     test "in", %{auth_conn: conn} = _context do
       # FIXME: list of values
       filter = "filter=and(in(integer_support,(3,10)))"
+
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
+
       param = List.first(json_body["content"]["items"])["integer_support"]
       assert param >= 3 and param <= 10 == true
     end
