@@ -16,6 +16,7 @@ defmodule ArkeServer.Plugs.BuildFilters do
   import Plug.Conn
   alias Arke.QueryManager
   alias Arke.Validator
+  alias Arke.Utils.ErrorGenerator, as: Error
 
   def init(default), do: default
 
@@ -23,18 +24,27 @@ defmodule ArkeServer.Plugs.BuildFilters do
         %Plug.Conn{method: "GET", query_params: %{"filter" => "and" <> condition}} = conn,
         _default
       ) do
-    assign(conn, :filter, get_conditions(conn, remove_wrap_parentheses(condition), :and))
+    case get_conditions(conn, remove_wrap_parentheses(condition), :and) do
+      {:ok, data} -> assign(conn, :filter, data)
+      {:error, msg} -> stop_conn(conn, msg)
+    end
   end
 
   def call(
         %Plug.Conn{method: "GET", query_params: %{"filter" => "or" <> condition}} = conn,
         _default
       ) do
-    assign(conn, :filter, get_conditions(conn, remove_wrap_parentheses(condition), :or))
+    case get_conditions(conn, remove_wrap_parentheses(condition), :or) do
+      {:ok, data} -> assign(conn, :filter, data)
+      {:error, msg} -> stop_conn(conn, msg)
+    end
   end
 
   def call(%Plug.Conn{method: "GET", query_params: %{"filter" => filter}} = conn, _default) do
-    assign(conn, :filter, get_conditions(conn, filter))
+    case get_conditions(conn, filter) do
+      {:ok, data} -> assign(conn, :filter, data)
+      {:error, msg} -> stop_conn(conn, msg)
+    end
   end
 
   def call(conn, _opts), do: conn
@@ -59,28 +69,40 @@ defmodule ArkeServer.Plugs.BuildFilters do
         remove_match(match, acc)
       end)
       |> String.split(",")
-      |> Enum.map(fn x -> get_operator(x) end)
+      |> Enum.map(fn x ->
+        case get_operator(x) do
+          {:ok, op} ->
+            op
 
-    filters =
-      Enum.with_index(operators)
-      |> Enum.reduce([], fn {op, i}, acc ->
-        cond do
-          is_logic_operator(op) ->
-            [get_conditions(conn, Enum.at(matches, i), op, false) | acc]
-
-          is_negate_operator(op) ->
-            if is_filter,
-              do: [get_conditions(conn, Enum.at(matches, i), op, false, true) | acc],
-              else: [get_conditions(conn, Enum.at(matches, i), op, false, true) | acc]
-
-          true ->
-            if is_filter,
-              do: [format_parameter_and_value(conn, Enum.at(matches, i), op, negate) | acc],
-              else: [conn, format_parameter_and_value(Enum.at(matches, i), op, negate) | acc]
+          {:error, msg} ->
+            nil
         end
       end)
 
-    {logical_op, negate, filters}
+    if Enum.any?(operators, &is_nil(&1)) do
+      Error.create(:filter, "some of the filters are not available")
+    else
+      filters =
+        Enum.with_index(operators)
+        |> Enum.reduce([], fn {op, i}, acc ->
+          cond do
+            is_logic_operator(op) ->
+              [get_conditions(conn, Enum.at(matches, i), op, false) | acc]
+
+            is_negate_operator(op) ->
+              if is_filter,
+                do: [get_conditions(conn, Enum.at(matches, i), op, false, true) | acc],
+                else: [get_conditions(conn, Enum.at(matches, i), op, false, true) | acc]
+
+            true ->
+              if is_filter,
+                do: [format_parameter_and_value(conn, Enum.at(matches, i), op, negate) | acc],
+                else: [conn, format_parameter_and_value(Enum.at(matches, i), op, negate) | acc]
+          end
+        end)
+
+      {:ok, {logical_op, negate, filters}}
+    end
   end
 
   defp format_parameter_and_value(conn, data, operator, negate \\ false) do
@@ -90,6 +112,7 @@ defmodule ArkeServer.Plugs.BuildFilters do
     parameter = Arke.Boundary.ParameterManager.get(parameter, project)
     # TODO handle if parameter not valid
     test = Validator.validate_parameter(nil, parameter.id, value, :arke_system)
+
     QueryManager.condition(parameter, operator, value, negate)
   end
 
@@ -104,21 +127,28 @@ defmodule ArkeServer.Plugs.BuildFilters do
   defp is_negate_operator(:not), do: true
   defp is_negate_operator(_op), do: false
 
-  defp get_operator("or()"), do: :or
-  defp get_operator("and()"), do: :and
+  defp get_operator("or()"), do: {:ok, :or}
+  defp get_operator("and()"), do: {:ok, :and}
 
-  defp get_operator("not()"), do: :not
+  defp get_operator("not()"), do: {:ok, :not}
 
-  defp get_operator("eq()"), do: :eq
-  defp get_operator("contains()"), do: :contains
-  defp get_operator("icontains()"), do: :icontains
-  defp get_operator("startswith()"), do: :startswith
-  defp get_operator("istartswith()"), do: :istartswith
-  defp get_operator("endswith()"), do: :endswith
-  defp get_operator("iendswith()"), do: :iendswith
-  defp get_operator("lte()"), do: :lte
-  defp get_operator("lt()"), do: :lt
-  defp get_operator("gt()"), do: :gt
-  defp get_operator("gte()"), do: :gte
-  defp get_operator("in()"), do: :in
+  defp get_operator("eq()"), do: {:ok, :eq}
+  defp get_operator("contains()"), do: {:ok, :contains}
+  defp get_operator("icontains()"), do: {:ok, :icontains}
+  defp get_operator("startswith()"), do: {:ok, :startswith}
+  defp get_operator("istartswith()"), do: {:ok, :istartswith}
+  defp get_operator("endswith()"), do: {:ok, :endswith}
+  defp get_operator("iendswith()"), do: {:ok, :iendswith}
+  defp get_operator("lte()"), do: {:ok, :lte}
+  defp get_operator("lt()"), do: {:ok, :lt}
+  defp get_operator("gt()"), do: {:ok, :gt}
+  defp get_operator("gte()"), do: {:ok, :gte}
+  defp get_operator("in()"), do: {:ok, :in}
+
+  defp get_operator(f), do: Error.create(:filter, "filter #{f} not available")
+
+  defp stop_conn(conn, errors) do
+    ArkeServer.ResponseManager.send_resp(conn, 400, nil, errors)
+    |> Plug.Conn.halt()
+  end
 end
