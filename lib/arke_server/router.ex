@@ -58,15 +58,6 @@ defmodule ArkeServer.Router do
       post("/signin", AuthController, :signin)
       post("/signup", AuthController, :signup)
 
-      scope "/auth" do
-        post("/signin", AuthController, :signin)
-        post("/signup", AuthController, :signup)
-
-        pipe_through(:api)
-        post("/refresh", AuthController, :refresh)
-        post("/verify", AuthController, :verify)
-      end
-
       pipe_through(:api)
       post("/refresh", AuthController, :refresh)
       post("/verify", AuthController, :verify)
@@ -75,6 +66,8 @@ defmodule ArkeServer.Router do
     # ↑ Not auth endpoint (no access token)
     pipe_through([:auth_api])
     # ↓ Auth endpoint (no access token)
+
+    post("/auth/change_password", AuthController, :change_password)
 
     # -------- PROJECT --------
 
