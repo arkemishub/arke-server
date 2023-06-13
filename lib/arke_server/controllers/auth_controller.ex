@@ -166,6 +166,26 @@ defmodule ArkeServer.AuthController do
     ResponseManager.send_resp(conn, 200, nil)
   end
 
+  @doc """
+  Reset user password
+  """
+  def change_password(conn, %{"old_password" => old_pwd, "password" => new_pwd} = params) do
+    user = ArkeAuth.Guardian.Plug.current_resource(conn)
+
+    Auth.change_password(user, old_pwd, new_pwd)
+    |> case do
+      {:ok, user} ->
+        ResponseManager.send_resp(conn, 200, %{
+          content: Arke.StructManager.encode(user, type: :json)
+        })
+
+      {:error, error} ->
+        ResponseManager.send_resp(conn, 400, nil, error)
+    end
+  end
+
+  def change_password(conn, _), do: ResponseManager.send_resp(conn, 400, nil)
+
   defp get_project(project) when is_nil(project), do: :arke_system
   defp get_project(project), do: project
 end
