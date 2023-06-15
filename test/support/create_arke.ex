@@ -1,4 +1,4 @@
-defmodule Arke.Support.CreateArke do
+defmodule ArkeServer.Support.CreateArke do
   use Arke.System
   alias Arke.Validator
   alias Arke.Core.Unit

@@ -73,8 +73,8 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "lt", %{auth_conn: conn} = _context do
-      # FIXME: unit_support_api_2
-      filter = "filter=and(lt(integer_support,10),lt(float_support,8.5))"
+      filter = "filter=and(lt(integer_support,15),lt(float_support,8.5))"
+
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)

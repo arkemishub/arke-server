@@ -1,14 +1,14 @@
 ExUnit.start()
 Ecto.Adapters.SQL.Sandbox.mode(ArkePostgres.Repo, :manual)
 
-Arke.Support.CreateArke.support_parameter()
+ArkeServer.Support.CreateArke.support_parameter()
 Arke.Boundary.ArkeManager.remove(:arke_test_support, :arke_system)
 
 create_support_arke = fn ->
   alias Arke.Core.Unit
   alias Arke.Boundary.{ArkeManager, GroupManager}
 
-  mod = Arke.Support.CreateArke
+  mod = ArkeServer.Support.CreateArke
 
   %{id: id, data: data, metadata: metadata} = mod.arke_from_attr
   unit = Unit.new(id, data, :arke, nil, metadata, nil, nil, mod)
