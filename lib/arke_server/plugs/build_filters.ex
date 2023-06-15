@@ -74,7 +74,7 @@ defmodule ArkeServer.Plugs.BuildFilters do
           {:ok, op} ->
             op
 
-          {:error, msg} ->
+          {:error, _msg} ->
             nil
         end
       end)
@@ -111,8 +111,6 @@ defmodule ArkeServer.Plugs.BuildFilters do
     # TODO handle if parameter not exists
     parameter = Arke.Boundary.ParameterManager.get(parameter, project)
     # TODO handle if parameter not valid
-    test = Validator.validate_parameter(nil, parameter.id, value, :arke_system)
-
     QueryManager.condition(parameter, operator, value, negate)
   end
 
@@ -127,25 +125,25 @@ defmodule ArkeServer.Plugs.BuildFilters do
   defp is_negate_operator(:not), do: true
   defp is_negate_operator(_op), do: false
 
-  defp get_operator("or()"), do: {:ok, :or}
-  defp get_operator("and()"), do: {:ok, :and}
+  defp get_operator("or(" <> _rest), do: {:ok, :or}
+  defp get_operator("and(" <> _rest), do: {:ok, :and}
 
-  defp get_operator("not()"), do: {:ok, :not}
+  defp get_operator("not(" <> _rest), do: {:ok, :not}
 
-  defp get_operator("eq()"), do: {:ok, :eq}
-  defp get_operator("contains()"), do: {:ok, :contains}
-  defp get_operator("icontains()"), do: {:ok, :icontains}
-  defp get_operator("startswith()"), do: {:ok, :startswith}
-  defp get_operator("istartswith()"), do: {:ok, :istartswith}
-  defp get_operator("endswith()"), do: {:ok, :endswith}
-  defp get_operator("iendswith()"), do: {:ok, :iendswith}
-  defp get_operator("lte()"), do: {:ok, :lte}
-  defp get_operator("lt()"), do: {:ok, :lt}
-  defp get_operator("gt()"), do: {:ok, :gt}
-  defp get_operator("gte()"), do: {:ok, :gte}
-  defp get_operator("in()"), do: {:ok, :in}
+  defp get_operator("eq(" <> _rest), do: {:ok, :eq}
+  defp get_operator("contains(" <> _rest), do: {:ok, :contains}
+  defp get_operator("icontains(" <> _rest), do: {:ok, :icontains}
+  defp get_operator("startswith(" <> _rest), do: {:ok, :startswith}
+  defp get_operator("istartswith(" <> _rest), do: {:ok, :istartswith}
+  defp get_operator("endswith(" <> _rest), do: {:ok, :endswith}
+  defp get_operator("iendswith(" <> _rest), do: {:ok, :iendswith}
+  defp get_operator("lte(" <> _rest), do: {:ok, :lte}
+  defp get_operator("lt(" <> _rest), do: {:ok, :lt}
+  defp get_operator("gt(" <> _rest), do: {:ok, :gt}
+  defp get_operator("gte(" <> _rest), do: {:ok, :gte}
+  defp get_operator("in(" <> _rest), do: {:ok, :in}
 
-  defp get_operator(f), do: Error.create(:filter, "filter #{f} not available")
+  defp get_operator(_invalid_filter), do: Error.create(:filter, "filternot available")
 
   defp stop_conn(conn, errors) do
     ArkeServer.ResponseManager.send_resp(conn, 400, nil, errors)
