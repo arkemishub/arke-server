@@ -107,16 +107,28 @@ defmodule ArkeServer.Plugs.BuildFilters do
 
   defp format_parameter_and_value(conn, data, operator, negate \\ false) do
     project = conn.assigns[:arke_project]
-    [parameter, value] = String.split(data, ",")
+
+    [parameter, value] = String.split(data, ",", parts: 2)
     # TODO handle if parameter not exists
-    parameter = Arke.Boundary.ParameterManager.get(parameter, project)
+
     # TODO handle if parameter not valid
-    QueryManager.condition(parameter, operator, value, negate)
+    parameter = Arke.Boundary.ParameterManager.get(parameter, project)
+    QueryManager.condition(parameter, operator, parse_value(value), negate)
   end
 
   defp remove_match(match, str) do
     String.replace(str, match, "")
   end
+
+  defp parse_value(val) do
+    #remove ( and ) from our string before split
+    String.replace(val, ~r'[\(\])]', "")
+    |> String.split(",")
+    |> parse_list_value
+  end
+
+  defp parse_list_value(value_list) when length(value_list) > 1, do: value_list
+  defp parse_list_value(value_list), do: List.first(value_list)
 
   defp is_logic_operator(:or), do: true
   defp is_logic_operator(:and), do: true

@@ -4,7 +4,7 @@ defmodule ArkeServer.MixProject do
   def project do
     [
       app: :arke_server,
-      version: "0.1.5",
+      version: "0.1.6",
       build_path: "./_build",
       config_path: "./config/config.exs",
       deps_path: "./deps",
@@ -53,7 +53,6 @@ defmodule ArkeServer.MixProject do
       {:ymlr, "~> 2.0", only: :dev},
       {:excoveralls, "~> 0.10", only: :test},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      {:arke_postgres, "~> 0.1.8", only: :test},
       {:arke, "~> 0.1.7"},
       {:arke_auth, "~> 0.1.4"}
     ])
