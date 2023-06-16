@@ -54,8 +54,7 @@ defmodule ArkeServer.MixProject do
       {:excoveralls, "~> 0.10", only: :test},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:arke, "~> 0.1.7"},
-      {:arke_postgres,
-       path: "/Users/arkerik/Workspace/arkemis/library/backend/elixir/monorepo/arke_postgres"},
+      {:arke_postgres, "~> 0.2.1"},
       {:arke_auth, "~> 0.1.4"}
     ])
   end

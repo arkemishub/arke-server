@@ -348,7 +348,7 @@ defmodule ArkeServer.ArkeControllerTest do
       # FIXME: undefined table
       conn = get(conn, "/lib/test_arke_link_2/unit/test_unit_arke_2/link/parent")
       json_body = json_response(conn, 200)
-      IO.inspect(json_body)
+
 
       assert is_list(json_body["content"]["items"]) == true
 

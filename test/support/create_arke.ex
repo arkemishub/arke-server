@@ -2,7 +2,7 @@ defmodule ArkeServer.Support.CreateArke do
   use Arke.System
   alias Arke.Validator
   alias Arke.Core.Unit
-  alias Arke.Boundary.{ArkeManager, GroupManager, ParameterManager}
+  alias Arke.Boundary.{ArkeManager, GroupManager, ParameterManager, ParamsManager}
   alias Arke.Core.Parameter
 
   arke id: :arke_test_support do
@@ -17,7 +17,7 @@ defmodule ArkeServer.Support.CreateArke do
     parameter(:integer_support, :integer, required: false, default_integer: 5)
 
     parameter(:enum_integer_support, :integer,
-      required: true,
+      required: false,
       values: [1, 2, 3, 4, 5],
       multiple: true
     )
@@ -274,6 +274,7 @@ defmodule ArkeServer.Support.CreateArke do
     ]
 
     Enum.map(parameters, fn parameter ->
+      ParamsManager.create(parameter, :arke_system)
       ParameterManager.create(parameter, :arke_system)
     end)
   end

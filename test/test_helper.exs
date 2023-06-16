@@ -1,7 +1,6 @@
 ExUnit.start()
 
 ArkeServer.Support.CreateArke.support_parameter()
-Arke.Boundary.ArkeManager.remove(:arke_test_support, :arke_system)
 
 create_support_arke = fn ->
   alias Arke.Core.Unit
