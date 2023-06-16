@@ -98,7 +98,6 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "endswith", %{auth_conn: conn} = _context do
-      # FIXME: unit_support_api_2
       filter = "filter=and(endswith(string_support,it))"
       conn = get(conn, "/lib/unit?#{filter}")
 
@@ -108,7 +107,6 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "iendswith", %{auth_conn: conn} = _context do
-      # FIXME: unit_support_api_2
       filter = "filter=and(iendswith(string_support,IT))"
       conn = get(conn, "/lib/unit?#{filter}")
 
@@ -118,7 +116,6 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "startswith", %{auth_conn: conn} = _context do
-      # FIXME: unit_support_api_2
       filter = "filter=and(startswith(string_support,Sec))"
       conn = get(conn, "/lib/unit?#{filter}")
 
@@ -128,8 +125,7 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "istartswith", %{auth_conn: conn} = _context do
-      # FIXME: unit_support_api_2
-      filter = "filter=and(istartswith(string_support,IT))"
+      filter = "filter=and(istartswith(string_support,SECO))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -184,8 +180,7 @@ defmodule ArkeServer.UnitControllerTest do
     setup [:check_unit, :auth_conn]
 
     test "eq", %{auth_conn: conn} = _context do
-      filter =
-        "filter=or(eq(string_support,Not valid unit),eq(string_support,Second unit))"
+      filter = "filter=or(eq(string_support,Not valid unit),eq(string_support,Second unit))"
 
       conn = get(conn, "/lib/unit?#{filter}")
 
