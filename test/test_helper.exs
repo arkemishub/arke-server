@@ -1,5 +1,4 @@
 ExUnit.start()
-Ecto.Adapters.SQL.Sandbox.mode(ArkePostgres.Repo, :manual)
 
 ArkeServer.Support.CreateArke.support_parameter()
 Arke.Boundary.ArkeManager.remove(:arke_test_support, :arke_system)

@@ -34,13 +34,19 @@ defmodule ArkeServer.GroupControllerTest do
     QueryManager.create(:test_schema, arke_model, %{id: "test_arke_group_gc", label: "Test Arke"})
 
     arke_api = ArkeManager.get(:test_arke_group_gc, :test_schema)
-    QueryManager.create(:test_schema, arke_api, %{id: :test_api_unit, label: "Test Arke Unit"})
+
+    {:ok, child} =
+      QueryManager.create(:test_schema, arke_api, %{id: :test_api_unit, label: "Test Arke Unit"})
 
     group_model = ArkeManager.get(:group, :arke_system)
 
-    QueryManager.create(:test_schema, group_model, %{id: "group_test_api", name: "group_test_api"})
+    {:ok, parent} =
+      QueryManager.create(:test_schema, group_model, %{
+        id: "group_test_api",
+        name: "group_test_api"
+      })
 
-    LinkManager.add_node(:test_schema, "group_test_api", "test_arke_group_gc", "group")
+    LinkManager.add_node(:test_schema, parent, child, "group")
     :ok
   end
 
