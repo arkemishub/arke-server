@@ -46,7 +46,7 @@ defmodule ArkeServer.UnitControllerTest do
     setup [:check_unit, :auth_conn]
 
     test "eq", %{auth_conn: conn} = _context do
-      filter = "filter=and(eq(string_support,#{"Second unit"}))"
+      filter = "filter=and(eq(string_support,Second unit))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -99,7 +99,7 @@ defmodule ArkeServer.UnitControllerTest do
 
     test "endswith", %{auth_conn: conn} = _context do
       # FIXME: unit_support_api_2
-      filter = "filter=and(endswith(string_support,#{"it"}))"
+      filter = "filter=and(endswith(string_support,it))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -109,7 +109,7 @@ defmodule ArkeServer.UnitControllerTest do
 
     test "iendswith", %{auth_conn: conn} = _context do
       # FIXME: unit_support_api_2
-      filter = "filter=and(iendswith(string_support,#{"IT"}))"
+      filter = "filter=and(iendswith(string_support,IT))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -119,7 +119,7 @@ defmodule ArkeServer.UnitControllerTest do
 
     test "startswith", %{auth_conn: conn} = _context do
       # FIXME: unit_support_api_2
-      filter = "filter=and(startswith(string_support,#{"Sec"}))"
+      filter = "filter=and(startswith(string_support,Sec))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -129,7 +129,7 @@ defmodule ArkeServer.UnitControllerTest do
 
     test "istartswith", %{auth_conn: conn} = _context do
       # FIXME: unit_support_api_2
-      filter = "filter=and(istartswith(string_support,#{"IT"}))"
+      filter = "filter=and(istartswith(string_support,IT))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -138,7 +138,7 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "contains", %{auth_conn: conn} = _context do
-      filter = "filter=and(contains(string_support,#{"S"}))"
+      filter = "filter=and(contains(string_support,S))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -153,7 +153,7 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "icontains", %{auth_conn: conn} = _context do
-      filter = "filter=and(icontains(string_support,#{"s"}))"
+      filter = "filter=and(icontains(string_support,s))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -168,7 +168,7 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "in", %{auth_conn: conn} = _context do
-      # FIXME: list of values
+      # FIXME: support of in operator with numbers
       filter = "filter=and(in(integer_support,(3,10)))"
 
       conn = get(conn, "/lib/unit?#{filter}")
@@ -185,7 +185,7 @@ defmodule ArkeServer.UnitControllerTest do
 
     test "eq", %{auth_conn: conn} = _context do
       filter =
-        "filter=or(eq(string_support,#{"Not valid unit"}),eq(string_support,#{"Second unit"}))"
+        "filter=or(eq(string_support,Not valid unit),eq(string_support,Second unit))"
 
       conn = get(conn, "/lib/unit?#{filter}")
 
@@ -240,7 +240,7 @@ defmodule ArkeServer.UnitControllerTest do
 
     test "endswith", %{auth_conn: conn} = _context do
       # FIXME: unit_support_api_2
-      filter = "filter=or(endswith(string_support,#{"it"}),endswith(string_support,#{"uno"}))"
+      filter = "filter=or(endswith(string_support,it),endswith(string_support,uno))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -251,7 +251,7 @@ defmodule ArkeServer.UnitControllerTest do
 
     test "iendswith", %{auth_conn: conn} = _context do
       # FIXME: unit_support_api_2
-      filter = "filter=or(iendswith(string_support,#{"IT"}),iendswith(string_support,#{"UNO"}))"
+      filter = "filter=or(iendswith(string_support,IT),iendswith(string_support,UNO))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -262,7 +262,7 @@ defmodule ArkeServer.UnitControllerTest do
 
     test "startswith", %{auth_conn: conn} = _context do
       # FIXME: unit_support_api_2
-      filter = "filter=or(startswith(string_support,#{"Sec"}))"
+      filter = "filter=or(startswith(string_support,Sec))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -273,7 +273,7 @@ defmodule ArkeServer.UnitControllerTest do
 
     test "istartswith", %{auth_conn: conn} = _context do
       # FIXME: unit_support_api_2
-      filter = "filter=or(istartswith(string_support,#{"IT"}))"
+      filter = "filter=or(istartswith(string_support,IT))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -282,7 +282,7 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "contains", %{auth_conn: conn} = _context do
-      filter = "filter=or(contains(string_support,#{"S"}))"
+      filter = "filter=or(contains(string_support,S))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
@@ -297,7 +297,7 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "icontains", %{auth_conn: conn} = _context do
-      filter = "filter=or(icontains(string_support,#{"s"}))"
+      filter = "filter=or(icontains(string_support,s))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)
