@@ -119,12 +119,14 @@ defmodule ArkeServer.GroupController do
   def get_arke(conn, %{"group_id" => group_id}) do
     project = conn.assigns[:arke_project]
 
-    with group = _ <- GroupManager.get(String.to_existing_atom(group_id), project) do
-      ResponseManager.send_resp(conn, 200, %{
-        items: StructManager.encode(GroupManager.get_arke_list(group), type: :json)
-      })
-    else
-      _ -> ResponseManager.send_resp(conn, 404, nil)
+    case GroupManager.get(String.to_existing_atom(group_id), project) do
+      {:error, msg} ->
+        ResponseManager.send_resp(conn, 404, nil)
+
+      group ->
+        ResponseManager.send_resp(conn, 200, %{
+          items: StructManager.encode(GroupManager.get_arke_list(group), type: :json)
+        })
     end
   end
 

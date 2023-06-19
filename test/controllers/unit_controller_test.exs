@@ -245,7 +245,6 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "iendswith", %{auth_conn: conn} = _context do
-      # FIXME: unit_support_api_2
       filter = "filter=or(iendswith(string_support,IT),iendswith(string_support,UNO))"
       conn = get(conn, "/lib/unit?#{filter}")
 
@@ -256,7 +255,6 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "startswith", %{auth_conn: conn} = _context do
-      # FIXME: unit_support_api_2
       filter = "filter=or(startswith(string_support,Sec))"
       conn = get(conn, "/lib/unit?#{filter}")
 
@@ -267,8 +265,7 @@ defmodule ArkeServer.UnitControllerTest do
     end
 
     test "istartswith", %{auth_conn: conn} = _context do
-      # FIXME: unit_support_api_2
-      filter = "filter=or(istartswith(string_support,IT))"
+      filter = "filter=or(istartswith(string_support,SEC))"
       conn = get(conn, "/lib/unit?#{filter}")
 
       json_body = json_response(conn, 200)

@@ -31,12 +31,15 @@ defmodule ArkeServer.GroupControllerTest do
   defp associate_arke(_context) do
     arke_model = ArkeManager.get(:arke, :arke_system)
 
-    QueryManager.create(:test_schema, arke_model, %{id: "test_arke_group_gc", label: "Test Arke"})
+    {:ok, child} =
+      QueryManager.create(:test_schema, arke_model, %{
+        id: "test_arke_group_gc",
+        label: "Test Arke"
+      })
 
     arke_api = ArkeManager.get(:test_arke_group_gc, :test_schema)
 
-    {:ok, child} =
-      QueryManager.create(:test_schema, arke_api, %{id: :test_api_unit, label: "Test Arke Unit"})
+    QueryManager.create(:test_schema, arke_api, %{id: :test_api_unit, label: "Test Arke Unit"})
 
     group_model = ArkeManager.get(:group, :arke_system)
 
