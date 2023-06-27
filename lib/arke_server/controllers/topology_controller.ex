@@ -149,10 +149,7 @@ defmodule ArkeServer.TopologyController do
            do: params["metadata"],
            else: (_ -> %{})
 
-    parent = QueryManager.get_by(project: project, arke: arke_id, id: parent_id)
-    child = QueryManager.get_by(project: project, arke: arke_id_two, id: child_id)
-
-    LinkManager.add_node(project, parent, child, type, metadata)
+    LinkManager.add_node(project, parent_id, child_id, type, metadata)
     |> case do
       {:ok, unit} ->
         ResponseManager.send_resp(
@@ -172,9 +169,9 @@ defmodule ArkeServer.TopologyController do
   def delete_node(%Plug.Conn{body_params: params} = conn, %{
         "arke_id" => _arke_id,
         "arke_id_two" => _arke_id_two,
-        "arke_unit_id" => parent,
+        "arke_unit_id" => parent_id,
         "link_id" => type,
-        "unit_id_two" => child
+        "unit_id_two" => child_id
       }) do
     project = conn.assigns[:arke_project]
     # link arke is only in :arke_system so it won't be changed right now
@@ -184,7 +181,7 @@ defmodule ArkeServer.TopologyController do
            do: params["metadata"],
            else: (_ -> %{})
 
-    with {:ok, nil} <- LinkManager.delete_node(project, parent, child, type, metadata) do
+    with {:ok, nil} <- LinkManager.delete_node(project, parent_id, child_id, type, metadata) do
       ResponseManager.send_resp(conn, 204)
     else
       _ -> ResponseManager.send_resp(conn, 500, "")
