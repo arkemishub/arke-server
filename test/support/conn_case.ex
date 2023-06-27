@@ -24,7 +24,7 @@ defmodule ArkeServer.ConnCase do
       @endpoint ArkeServer.Endpoint
       alias ArkeAuth.Guardian
       alias ArkePostgres.Repo
-      alias Arke.Boundary.ArkeManager
+      alias Arke.Boundary.{ArkeManager, ParameterManager, ParamsManager, GroupManager}
       alias Arke.QueryManager
 
       # Import conveniences for testing with connections
@@ -118,7 +118,7 @@ defmodule ArkeServer.ConnCase do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(ArkePostgres.Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(ArkePostgres.Repo, :auto)
+      Ecto.Adapters.SQL.Sandbox.mode(ArkePostgres.Repo, {:shared, self()})
     end
 
     check_project()

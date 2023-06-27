@@ -51,22 +51,18 @@ defmodule ArkeServer.MixProject do
       {:ex_doc, "~> 0.28", only: :dev, runtime: false},
       {:open_api_spex, "~> 3.16"},
       {:ymlr, "~> 2.0", only: :dev},
-      # {:ecto_sql, "~> 3.8.3", only: :test},
       {:excoveralls, "~> 0.10", only: :test},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:arke, "~> 0.1.7"},
+      {:arke_postgres, "~> 0.2.1"},
       {:arke_auth, "~> 0.1.4"}
     ])
   end
 
   defp aliases do
     [
-      test: [
-        "test"
-      ],
-      "test.ci": [
-        "test"
-      ],
+      test: ["arke_postgres.init_db --quiet", "test"],
+      "test.ci": ["arke_postgres.init_db --quiet", "test"],
       setup: ["deps.get"]
     ]
   end

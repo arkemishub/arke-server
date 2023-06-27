@@ -26,8 +26,11 @@ defmodule ArkeServer.Plugs.GetUnit do
 
   def call(%Plug.Conn{path_info: path} = conn, default) do
     case Enum.filter(path, fn item -> String.contains?(item, "::") end) do
-      [] -> single_unit(conn, default)
-      items -> unit_list(conn, items, [])
+      [] ->
+        single_unit(conn, default)
+
+      items ->
+        unit_list(conn, items, [])
     end
   end
 
@@ -75,7 +78,7 @@ defmodule ArkeServer.Plugs.GetUnit do
     parse_unit(conn, unit)
   end
 
-  def single_unit(%Plug.Conn{path_params: %{"arke_id" => _}} = conn, _default) do
+  def single_unit(conn, _default) do
     conn
   end
 

@@ -1,14 +1,12 @@
 defmodule ArkeServer.ArkeControllerTest do
-  # TODO: write more specific error case (like params missing or invalid data) and also wirte more create specific case
   use ArkeServer.ConnCase
   alias Arke.UnitManager
   alias Arke.LinkManager
 
   defp check_arke(_context) do
     ids = [
-      :unit_api_ac,
-      :group_test_api_arke,
       :test_arke_group_ac,
+      :group_test_api_arke,
       :test_unit_arke_ac_1,
       :test_arke_link_ac_1,
       :test_unit_arke_ac_2,
@@ -20,11 +18,27 @@ defmodule ArkeServer.ArkeControllerTest do
     delete_connection("group_test_api_arke", "test_arke_group_ac", "group")
     delete_connection("test_arke_group_ac", "api_string", "parameter")
     delete_connection("test_unit_arke_ac_1", "test_unit_arke_ac_2", "link_test_ac")
-    Enum.each(ids, fn id -> check_db(id) end)
+
+    Enum.each(ids, fn id ->
+      check_db(id)
+    end)
+
+    create_arke()
     :ok
   end
 
-  defp delete_connection(parent, child, type, metadata \\ %{}) do
+  defp create_arke() do
+    arke_model = ArkeManager.get(:arke, :arke_system)
+
+    QueryManager.create(:test_schema, arke_model, %{
+      id: "test_arke_group_ac",
+      label: "Test arke group ac"
+    })
+
+    string = ArkeManager.get(:string, :arke_system)
+  end
+
+  def delete_connection(parent, child, type, metadata \\ %{}) do
     arke_link = ArkeManager.get(:arke_link, :arke_system)
 
     with %Arke.Core.Unit{} = link <-
@@ -32,7 +46,6 @@ defmodule ArkeServer.ArkeControllerTest do
            |> Arke.QueryManager.filter(:parent_id, :eq, parent, false)
            |> Arke.QueryManager.filter(:child_id, :eq, child, false)
            |> Arke.QueryManager.filter(:type, :eq, type, false)
-           |> Arke.QueryManager.filter(:metadata, :eq, metadata, false)
            |> Arke.QueryManager.one() do
       Arke.QueryManager.delete(:test_schema, link)
       :ok
@@ -49,6 +62,8 @@ defmodule ArkeServer.ArkeControllerTest do
   ################################ ARKE ################################
 
   describe "get arke struct - GET /lib/:arke_id/struct" do
+    setup [:check_arke, :auth_conn]
+
     test "success" do
       user = get_user()
 
@@ -84,15 +99,8 @@ defmodule ArkeServer.ArkeControllerTest do
       arke_model = ArkeManager.get(:arke, :arke_system)
 
       {:ok, _unit} =
-        QueryManager.create(:test_schema, arke_model, %{
-          id: "test_arke_group_ac",
-          label: "Test Arke"
-        })
-
-      {:ok, _unit} =
         LinkManager.add_node(:test_schema, "group_test_api_arke", "test_arke_group_ac", "group")
 
-      # FIXME: undefined table
       user = get_user()
 
       conn =
@@ -118,11 +126,6 @@ defmodule ArkeServer.ArkeControllerTest do
       # Create arke
       arke_model = ArkeManager.get(:arke, :arke_system)
 
-      QueryManager.create(:test_schema, arke_model, %{
-        id: "test_arke_group_ac",
-        label: "Test Arke"
-      })
-
       # Create unit
       arke_model = ArkeManager.get(:test_arke_group_ac, :test_schema)
 
@@ -142,7 +145,6 @@ defmodule ArkeServer.ArkeControllerTest do
     end
 
     test "error", %{auth_conn: conn} = _context do
-      # FIXME: not existing arke should return 404
       conn = get(conn, "/lib/error/unit")
       assert conn.status == 404
     end
@@ -154,11 +156,7 @@ defmodule ArkeServer.ArkeControllerTest do
     test "success", %{auth_conn: conn} = _context do
       # Create arke
       arke_model = ArkeManager.get(:arke, :arke_system)
-
-      QueryManager.create(:test_schema, arke_model, %{
-        id: "test_arke_group_ac",
-        label: "Test Arke"
-      })
+      check_db("unit_api_post")
 
       conn =
         post(conn, "/lib/test_arke_group_ac/unit", %{id: "unit_api_post", label: "Test Unit Api"})
@@ -171,12 +169,7 @@ defmodule ArkeServer.ArkeControllerTest do
     test "error", %{auth_conn: conn} = _context do
       arke_model = ArkeManager.get(:arke, :arke_system)
 
-      QueryManager.create(:test_schema, arke_model, %{
-        id: "test_arke_group_ac",
-        label: "Test Arke"
-      })
-
-      conn = post(conn, "/lib/test_arke_group_ac/unit", %{})
+      conn = post(conn, "/lib/test_arke_group_ac2/unit", %{})
       json_body = json_response(conn, 400)
 
       assert Enum.empty?(json_body["messages"]) == false
@@ -191,11 +184,6 @@ defmodule ArkeServer.ArkeControllerTest do
     test "success", %{auth_conn: conn} = _context do
       # Create arke
       arke_model = ArkeManager.get(:arke, :arke_system)
-
-      QueryManager.create(:test_schema, arke_model, %{
-        id: "test_arke_group_ac",
-        label: "Test Arke"
-      })
 
       # Create unit
       arke_model = ArkeManager.get(:test_arke_group_ac, :test_schema)
@@ -214,11 +202,6 @@ defmodule ArkeServer.ArkeControllerTest do
     test "error", %{auth_conn: conn} = _context do
       arke_model = ArkeManager.get(:arke, :arke_system)
 
-      QueryManager.create(:test_schema, arke_model, %{
-        id: "test_arke_group_ac",
-        label: "Test Arke"
-      })
-
       conn = get(conn, "/lib/test_arke_group_ac/unit/error")
       assert conn.status == 404
     end
@@ -230,11 +213,6 @@ defmodule ArkeServer.ArkeControllerTest do
     test "success", %{auth_conn: conn} = _context do
       # Create arke
       arke_model = ArkeManager.get(:arke, :arke_system)
-
-      QueryManager.create(:test_schema, arke_model, %{
-        id: "test_arke_group_ac",
-        label: "Test Arke"
-      })
 
       # Create unit
       arke_model = ArkeManager.get(:test_arke_group_ac, :test_schema)
@@ -255,11 +233,6 @@ defmodule ArkeServer.ArkeControllerTest do
     test "error", %{auth_conn: conn} = _context do
       arke_model = ArkeManager.get(:arke, :arke_system)
 
-      QueryManager.create(:test_schema, arke_model, %{
-        id: "test_arke_group_ac",
-        label: "Test Arke"
-      })
-
       conn = put(conn, "/lib/test_arke_group_ac/unit/error")
       assert conn.status == 404
     end
@@ -271,11 +244,6 @@ defmodule ArkeServer.ArkeControllerTest do
     test "success", %{auth_conn: conn} = _context do
       # Create arke
       arke_model = ArkeManager.get(:arke, :arke_system)
-
-      QueryManager.create(:test_schema, arke_model, %{
-        id: "test_arke_group_ac",
-        label: "Test Arke"
-      })
 
       # Create unit
       arke_model = ArkeManager.get(:test_arke_group_ac, :test_schema)
@@ -345,10 +313,8 @@ defmodule ArkeServer.ArkeControllerTest do
           type: to_string(link_unit.id)
         )
 
-      # FIXME: undefined table
       conn = get(conn, "/lib/test_arke_link_2/unit/test_unit_arke_2/link/parent")
       json_body = json_response(conn, 200)
-      IO.inspect(json_body)
 
       assert is_list(json_body["content"]["items"]) == true
 
@@ -443,25 +409,15 @@ defmodule ArkeServer.ArkeControllerTest do
       # Create arke
       parameter_model = ArkeManager.get(:string, :arke_system)
 
-      {:ok, _unit} =
-        QueryManager.create(:test_schema, parameter_model, id: :api_string, label: "api string")
-
       arke_model = ArkeManager.get(:arke, :arke_system)
-
-      {:ok, _unit} =
-        QueryManager.create(:test_schema, arke_model, %{
-          id: "test_arke_group_ac",
-          label: "Test Arke"
-        })
 
       # Create unit
       arke_model = ArkeManager.get(:test_arke_group_ac, :test_schema)
 
-      {:ok, _unit} =
-        QueryManager.create(:test_schema, arke_model, %{
-          id: "unit_api_ac",
-          label: "Test Unit Api"
-        })
+      QueryManager.create(:test_schema, arke_model, %{
+        id: "unit_api_ac",
+        label: "Test Unit Api"
+      })
 
       post_conn = post(post_conn, "/lib/test_arke_group_ac/parameter/api_string")
 

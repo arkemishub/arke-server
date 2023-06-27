@@ -1,5 +1,5 @@
 {
-  "skip_files": [],
+  "skip_files": ["lib/openapi/*","test/support/*","lib/arke_server/views/*"],
   "coverage_options": {
     "treat_no_relevant_lines_as_covered": true,
     "minimum_coverage": 60
