@@ -23,6 +23,6 @@ config :arke_server, ecto_repos: [ArkePostgres.Repo]
 config :arke_postgres, ArkePostgres.Repo,
   username: "postgres",
   password: "postgres",
-  database: "myapp_test",
-  hostname: "localhost",
+  database: System.get_env("DB_NAME") || "myapp_test",
+  hostname: System.get_env("DB_HOSTNAME") || "localhost",
   pool: Ecto.Adapters.SQL.Sandbox

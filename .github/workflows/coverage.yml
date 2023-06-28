@@ -40,17 +40,19 @@ jobs:
         run: mix deps.get
 
       - name: Generating XML
-        run: mix coveralls.json --umbrella
+        run: mix coveralls.json
+        # todo: remove after tests are added
+        continue-on-error: true
         env:
           MIX_ENV: test
           DB_HOSTNAME: postgres
-          DB_NAME: arke-repo-test
+          DB_NAME: test
           DB_USER: postgres
           DB_PASSWORD: postgres
       - name: Upload to Codecov
         uses: codecov/codecov-action@v2
         with:
-          token: ${{ secrets.CODECOV_UPLOAD_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }}
           file: ./cover/excoveralls.json
           directory: cover
           fail_ci_if_error: true
