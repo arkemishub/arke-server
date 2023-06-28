@@ -184,7 +184,8 @@ defmodule ArkeServer.TopologyController do
     with {:ok, nil} <- LinkManager.delete_node(project, parent_id, child_id, type, metadata) do
       ResponseManager.send_resp(conn, 204)
     else
-      _ -> ResponseManager.send_resp(conn, 500, "")
+      {:error, error} ->
+        ResponseManager.send_resp(conn, 404, nil, error)
     end
   end
 
