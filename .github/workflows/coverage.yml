@@ -1,17 +1,17 @@
 name: Test 🧪
 on:
   workflow_dispatch:
-  # Triggers the workflow on pull request events but only for the master branch
+  # Triggers the workflow on pull request events but only for the main branch
   pull_request:
-    branches: # matches refs/heads/master
-      - 'master'
+    branches: # matches refs/heads/main``
+      - 'main'
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
 jobs:
   test:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     container: node:10.18-jessie
     name: Create Coverage Report
     services:
