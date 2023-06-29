@@ -54,15 +54,20 @@ defmodule ArkeServer.MixProject do
       {:excoveralls, "~> 0.10", only: :test},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:arke, "~> 0.1.7"},
-      {:arke_postgres, "~> 0.2.1"},
+      {:arke_postgres, "~> 0.2.3"},
       {:arke_auth, "~> 0.1.4"}
     ])
   end
 
   defp aliases do
     [
-      test: ["arke_postgres.init_db --quiet", "test"],
-      "test.ci": ["arke_postgres.init_db --quiet", "test"],
+      test: [
+        "ecto.drop -r ArkePostgres.Repo",
+        "ecto.create -r ArkePostgres.Repo",
+        "arke_postgres.init_db --quiet",
+        "arke_postgres.create_project --id test_schema",
+        "test"
+      ],
       setup: ["deps.get"]
     ]
   end

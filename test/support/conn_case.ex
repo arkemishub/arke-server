@@ -93,35 +93,12 @@ defmodule ArkeServer.ConnCase do
     end
   end
 
-  defp check_project() do
-    with nil <-
-           Arke.QueryManager.get_by(
-             id: :test_schema,
-             arke_id: "arke_project",
-             project: :arke_system
-           ) do
-      project = Arke.Boundary.ArkeManager.get(:arke_project, :arke_system)
-
-      Arke.QueryManager.create(:arke_system, project, %{
-        id: :test_schema,
-        name: "test_schema",
-        description: "test schema",
-        type: "postgres_schema",
-        label: "Test Project"
-      })
-    else
-      _ -> nil
-    end
-  end
-
   setup tags do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(ArkePostgres.Repo)
 
     unless tags[:async] do
       Ecto.Adapters.SQL.Sandbox.mode(ArkePostgres.Repo, {:shared, self()})
     end
-
-    check_project()
 
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
