@@ -53,7 +53,7 @@ defmodule ArkeServer.MixProject do
       {:ymlr, "~> 2.0", only: :dev},
       {:excoveralls, "~> 0.10", only: :test},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      {:arke, "~> 0.1.7"},
+      {:arke, "~> 0.1.8"},
       {:arke_postgres, "~> 0.2.3"},
       {:arke_auth, "~> 0.1.4"}
     ])
