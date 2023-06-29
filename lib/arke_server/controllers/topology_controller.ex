@@ -192,12 +192,16 @@ defmodule ArkeServer.TopologyController do
   @doc """
        Associate a parameter to an Arke
        """ && false
-  def add_parameter(conn, %{
+  def add_parameter(%Plug.Conn{body_params: params} = conn, %{
         "arke_parameter_id" => parameter_id,
-        "arke_id" => arke_id,
-        "metadata" => metadata
+        "arke_id" => arke_id
       }) do
     project = conn.assigns[:arke_project]
+
+    metadata =
+      with true <- Map.has_key?(params, "metadata"),
+           do: params["metadata"],
+           else: (_ -> %{})
 
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
