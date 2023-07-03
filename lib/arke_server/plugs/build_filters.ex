@@ -101,19 +101,46 @@ defmodule ArkeServer.Plugs.BuildFilters do
           end
         end)
 
-      {:ok, {logical_op, negate, filters}}
+      error_filters = Enum.filter(filters, fn {k, v} -> k == :error end)
+
+      if length(error_filters) > 0 do
+        {:error, error_filters |> Enum.map(fn {k, v} -> v end)}
+      else
+        filters = Enum.filter(filters, fn {k, v} -> k == :ok end) |> Enum.map(fn {k, v} -> v end)
+        {:ok, {logical_op, negate, filters}}
+      end
     end
   end
 
-  defp format_parameter_and_value(conn, data, operator, negate \\ false) do
+  defp format_parameter_and_value(conn, data, operator, negate \\ false)
+
+  defp format_parameter_and_value(conn, data, :isnull, _negate) do
+    get_condition(conn, data, :isnull, nil, false)
+  end
+
+  defp format_parameter_and_value(conn, data, operator, negate) do
+    case String.split(data, ",", parts: 2) do
+      [parameter_id, value] ->
+        case get_condition(conn, parameter_id, operator, value, negate) do
+          {:error, msg} -> {:error, msg}
+          {:ok, condition} -> {:ok, condition}
+        end
+
+      _ ->
+        Error.create(:filter, "invalid value. Use `isnull()` operator to check null values")
+    end
+  end
+
+  defp get_condition(conn, parameter_id, operator, value, negate) do
     project = conn.assigns[:arke_project]
 
-    [parameter, value] = String.split(data, ",", parts: 2)
-    # TODO handle if parameter not exists
+    case Arke.Boundary.ParameterManager.get(parameter_id, project) do
+      {:error, msg} ->
+        {:error, msg}
 
-    # TODO handle if parameter not valid
-    parameter = Arke.Boundary.ParameterManager.get(parameter, project)
-    QueryManager.condition(parameter, operator, parse_value(value, operator), negate)
+      parameter ->
+        {:ok, QueryManager.condition(parameter, operator, parse_value(value, operator), negate)}
+    end
   end
 
   defp remove_match(match, str) do
@@ -152,8 +179,9 @@ defmodule ArkeServer.Plugs.BuildFilters do
   defp get_operator("gt(" <> _rest), do: {:ok, :gt}
   defp get_operator("gte(" <> _rest), do: {:ok, :gte}
   defp get_operator("in(" <> _rest), do: {:ok, :in}
+  defp get_operator("isnull(" <> _rest), do: {:ok, :isnull}
 
-  defp get_operator(_invalid_filter), do: Error.create(:filter, "filternot available")
+  defp get_operator(_invalid_filter), do: Error.create(:filter, "filter not available")
 
   defp stop_conn(conn, errors) do
     ArkeServer.ResponseManager.send_resp(conn, 400, nil, errors)
