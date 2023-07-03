@@ -8,8 +8,9 @@ defmodule ArkeServer.Support.CreateArke do
   arke id: :arke_test_support do
     parameter(:string_support, :string,
       required: false,
-      default_string: "test_default",
-      unique: true
+      default_string: nil,
+      unique: true,
+      nullable: true
     )
 
     parameter(:enum_string_support, :string, required: false, values: ["first", "second", "third"])
