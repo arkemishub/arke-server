@@ -20,6 +20,17 @@ defmodule ArkeServer.UnitControllerTest do
       id: :unit_support_api_2,
       string_support: "Second unit",
       enum_string_support: "second",
+      label: "test_2",
+      integer_support: 12,
+      enum_integer_support: 1,
+      float_support: 6.12,
+      enum_float_support: 2,
+      boolean_support: false
+    ]
+
+    values_unit_3 = [
+      id: :unit_support_api_3,
+      enum_string_support: "third",
       integer_support: 12,
       enum_integer_support: 1,
       float_support: 6.12,
@@ -29,10 +40,12 @@ defmodule ArkeServer.UnitControllerTest do
 
     check_db(values[:id])
     check_db(values_unit_2[:id])
+    check_db(values_unit_3[:id])
     model = ArkeManager.get(:arke_test_support, :arke_system)
 
     QueryManager.create(:test_schema, model, values)
     QueryManager.create(:test_schema, model, values_unit_2)
+    QueryManager.create(:test_schema, model, values_unit_3)
 
     :ok
   end
@@ -174,6 +187,17 @@ defmodule ArkeServer.UnitControllerTest do
       param = List.first(json_body["content"]["items"])["integer_support"]
       assert param >= 3 and param <= 10 == true
     end
+
+    test "isnull", %{auth_conn: conn} = _context do
+      filter = "filter=and(isnull(string_support))"
+      conn = get(conn, "/lib/unit?#{filter}")
+
+      json_body = json_response(conn, 200)
+      param = List.first(json_body["content"]["items"])["string_support"]
+
+      assert is_nil(param) == true and
+               List.first(json_body["content"]["items"])["id"] == "unit_support_api_3"
+    end
   end
 
   describe "get unit by filters OR - GET /lib/unit" do
@@ -311,6 +335,17 @@ defmodule ArkeServer.UnitControllerTest do
       json_body = json_response(conn, 200)
       param = List.first(json_body["content"]["items"])["integer_support"]
       assert param >= 3 and param <= 10 == true
+    end
+
+    test "isnull", %{auth_conn: conn} = _context do
+      filter = "filter=or(isnull(string_support))"
+      conn = get(conn, "/lib/unit?#{filter}")
+
+      json_body = json_response(conn, 200)
+      param = List.first(json_body["content"]["items"])["string_support"]
+
+      assert is_nil(param) == true and
+               List.first(json_body["content"]["items"])["id"] == "unit_support_api_3"
     end
   end
 end
