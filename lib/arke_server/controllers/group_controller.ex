@@ -21,7 +21,7 @@ defmodule ArkeServer.GroupController do
   alias Arke.Core.Unit
   alias Arke.Boundary.{ArkeManager, GroupManager}
   alias ArkeServer.ResponseManager
-  alias ArkeServer.Utils.{QueryFilters, QueryOrder}
+  alias ArkeServer.Utils.{QueryFilters, QueryOrder, QueryPaginationCount}
 
   alias ArkeServer.Openapi.Responses
 
@@ -110,7 +110,13 @@ defmodule ArkeServer.GroupController do
     group = GroupManager.get(String.to_existing_atom(group_id), project)
     parameters = GroupManager.get_parameters(group)
 
-    tmp_arke = Unit.load(arke, label: group.data.label, parameters: parameters, metadata: %{project: project})
+    tmp_arke =
+      Unit.load(arke,
+        label: group.data.label,
+        parameters: parameters,
+        metadata: %{project: project}
+      )
+
     struct = StructManager.get_struct(tmp_arke, conn.query_params)
     ResponseManager.send_resp(conn, 200, %{content: struct})
   end
@@ -133,16 +139,12 @@ defmodule ArkeServer.GroupController do
   ## get all the units of the arke inside the given group
   def get_unit(conn, %{"group_id" => group_id}) do
     project = conn.assigns[:arke_project]
-    offset = Map.get(conn.query_params, "offset", nil)
-    limit = Map.get(conn.query_params, "limit", nil)
-    order = Map.get(conn.query_params, "order", [])
 
     {count, units} =
       QueryManager.query(project: project)
       |> QueryManager.filter(:group_id, :eq, group_id, false)
       |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-      |> QueryOrder.apply_order(order)
-      |> QueryManager.pagination(offset, limit)
+      |> QueryPaginationCount.apply_pagination_or_count(conn)
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,

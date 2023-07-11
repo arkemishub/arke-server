@@ -18,7 +18,7 @@ defmodule ArkeServer.UnitController do
   alias Arke.Boundary.{ArkeManager, ParameterManager}
   alias UnitSerializer
   alias ArkeServer.ResponseManager
-  alias ArkeServer.Utils.{QueryFilters, QueryOrder}
+  alias ArkeServer.Utils.{QueryFilters, QueryOrder, QueryPaginationCount}
 
   alias(ArkeServer.Openapi.Responses)
   alias OpenApiSpex.{Operation, Reference}
@@ -83,8 +83,7 @@ defmodule ArkeServer.UnitController do
     {count, units} =
       QueryManager.query(project: project)
       |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-      |> QueryOrder.apply_order(order)
-      |> QueryManager.pagination(offset, limit)
+      |> QueryPaginationCount.apply_pagination_or_count(conn)
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,
