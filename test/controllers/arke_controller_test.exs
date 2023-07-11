@@ -54,6 +54,55 @@ defmodule ArkeServer.ArkeControllerTest do
     end
   end
 
+  defp prepare_get_node(conn) do
+    # Create arke
+    link_model = ArkeManager.get(:link, :arke_system)
+
+    {:ok, link_unit} =
+      QueryManager.create(:test_schema, link_model, %{
+        id: "link_test",
+        label: "testing",
+        name: "testing"
+      })
+
+    arke_model = ArkeManager.get(:arke, :arke_system)
+
+    QueryManager.create(:test_schema, arke_model, %{
+      id: "test_arke_link_1",
+      label: "Test Arke Link 1"
+    })
+
+    new_arke_model = ArkeManager.get(:test_arke_link_1, :test_schema)
+
+    {:ok, unit_1} =
+      QueryManager.create(:test_schema, new_arke_model, %{
+        id: "test_unit_arke_1",
+        label: "Test Unit 1"
+      })
+
+    QueryManager.create(:test_schema, arke_model, %{
+      id: "test_arke_link_2",
+      label: "Test Arke Link 2"
+    })
+
+    new_arke_model = ArkeManager.get(:test_arke_link_2, :test_schema)
+
+    {:ok, unit_2} =
+      QueryManager.create(:test_schema, new_arke_model, %{
+        id: "test_unit_arke_2",
+        label: "Test Unit 2"
+      })
+
+    arke_link_model = ArkeManager.get(:arke_link, :arke_system)
+
+    {:ok, link_unit_db} =
+      QueryManager.create(:test_schema, arke_link_model,
+        parent_id: to_string(unit_1.id),
+        child_id: to_string(unit_2.id),
+        type: to_string(link_unit.id)
+      )
+  end
+
   defp auth_conn(_context) do
     user = get_user()
     %{auth_conn: build_authenticated_conn(user)}
@@ -142,6 +191,25 @@ defmodule ArkeServer.ArkeControllerTest do
       assert is_nil(
                Enum.find(json_body["content"]["items"], fn unit -> unit["id"] == "unit_api_ac" end)
              ) == false
+    end
+
+    test "success - count only", %{auth_conn: conn} = _context do
+      # Create arke
+      arke_model = ArkeManager.get(:arke, :arke_system)
+
+      # Create unit
+      arke_model = ArkeManager.get(:test_arke_group_ac, :test_schema)
+
+      QueryManager.create(:test_schema, arke_model, %{
+        id: "unit_api_ac",
+        label: "Test Unit Api"
+      })
+
+      conn = get(conn, "/lib/test_arke_group_ac/unit?count_only=true")
+      json_body = json_response(conn, 200)
+
+      assert is_list(json_body["content"]["items"]) == false
+      assert is_number(json_body["content"]["count"]) == true
     end
 
     test "error", %{auth_conn: conn} = _context do
@@ -266,53 +334,7 @@ defmodule ArkeServer.ArkeControllerTest do
     setup [:check_arke, :auth_conn]
 
     test "success", %{auth_conn: conn} = _context do
-      # Create arke
-      link_model = ArkeManager.get(:link, :arke_system)
-
-      {:ok, link_unit} =
-        QueryManager.create(:test_schema, link_model, %{
-          id: "link_test",
-          label: "testing",
-          name: "testing"
-        })
-
-      arke_model = ArkeManager.get(:arke, :arke_system)
-
-      QueryManager.create(:test_schema, arke_model, %{
-        id: "test_arke_link_1",
-        label: "Test Arke Link 1"
-      })
-
-      new_arke_model = ArkeManager.get(:test_arke_link_1, :test_schema)
-
-      {:ok, unit_1} =
-        QueryManager.create(:test_schema, new_arke_model, %{
-          id: "test_unit_arke_1",
-          label: "Test Unit 1"
-        })
-
-      QueryManager.create(:test_schema, arke_model, %{
-        id: "test_arke_link_2",
-        label: "Test Arke Link 2"
-      })
-
-      new_arke_model = ArkeManager.get(:test_arke_link_2, :test_schema)
-
-      {:ok, unit_2} =
-        QueryManager.create(:test_schema, new_arke_model, %{
-          id: "test_unit_arke_2",
-          label: "Test Unit 2"
-        })
-
-      arke_link_model = ArkeManager.get(:arke_link, :arke_system)
-
-      {:ok, link_unit_db} =
-        QueryManager.create(:test_schema, arke_link_model,
-          parent_id: to_string(unit_1.id),
-          child_id: to_string(unit_2.id),
-          type: to_string(link_unit.id)
-        )
-
+      prepare_get_node(conn)
       conn = get(conn, "/lib/test_arke_link_2/unit/test_unit_arke_2/link/parent")
       json_body = json_response(conn, 200)
 
@@ -321,6 +343,15 @@ defmodule ArkeServer.ArkeControllerTest do
       assert is_nil(
                Enum.find(json_body["content"]["items"], fn unit -> unit["id"] == "unit_api_ac" end)
              ) == false
+    end
+
+    test "success - count only", %{auth_conn: conn} = _context do
+      prepare_get_node(conn)
+      conn = get(conn, "/lib/test_arke_link_2/unit/test_unit_arke_2/link/parent?count_only=true")
+      json_body = json_response(conn, 200)
+
+      assert is_list(json_body["content"]["items"]) == false
+      assert is_number(json_body["content"]["count"]) == true
     end
 
     test "error", %{auth_conn: conn} = _context do

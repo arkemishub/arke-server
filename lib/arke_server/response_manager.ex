@@ -22,24 +22,28 @@ defmodule ArkeServer.ResponseManager do
   If the status is 204 then the body will be empty
 
   """
-  import Plug.Conn
+  alias ArkeServer.Utils.{QueryPaginationCount}
 
-  defp get_content(%{items: items, count: count}, _encode) do
-    %{content: %{items: items, count: count}}
+  defp get_content(conn, %{items: items, count: count}, _encode) do
+    if QueryPaginationCount.is_count_only(conn) do
+      %{content: %{count: count}}
+    else
+      %{content: %{items: items, count: count}}
+    end
   end
 
-  defp get_content(%{items: items}, encode) do
-    get_content(%{items: items, count: length(items)}, encode)
+  defp get_content(conn, %{items: items}, encode) do
+    get_content(conn, %{items: items, count: length(items)}, encode)
   end
 
-  defp get_content(%{content: content}, _encode) do
+  defp get_content(_conn, %{content: content}, _encode) do
     %{content: content}
   end
 
-  defp get_content(nil, _encode), do: %{content: nil}
-  defp get_content("", _encode), do: %{content: nil}
+  defp get_content(_conn, nil, _encode), do: %{content: nil}
+  defp get_content(_conn, "", _encode), do: %{content: nil}
 
-  defp get_content(content, _encode) do
+  defp get_content(_conn, content, _encode) do
     %{content: content}
   end
 
@@ -67,7 +71,7 @@ defmodule ArkeServer.ResponseManager do
 
   defp send_response(conn, status, data, messages, encode) do
     data =
-      get_content(data, encode)
+      get_content(conn, data, encode)
       |> Map.put_new(:messages, messages)
 
     with {:ok, data} <- Jason.encode(data) do

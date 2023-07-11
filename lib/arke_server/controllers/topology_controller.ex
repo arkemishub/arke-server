@@ -8,7 +8,7 @@ defmodule ArkeServer.TopologyController do
   alias Arke.{QueryManager, LinkManager, StructManager}
   alias UnitSerializer
   alias ArkeServer.ResponseManager
-  alias ArkeServer.Utils.{QueryFilters, QueryOrder}
+  alias ArkeServer.Utils.{QueryFilters, QueryOrder, QueryPaginationCount}
   alias ArkeServer.Openapi.Responses
 
   alias OpenApiSpex.{Operation, Reference}
@@ -120,8 +120,7 @@ defmodule ArkeServer.TopologyController do
         type: link_type
       )
       |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-      |> QueryOrder.apply_order(order)
-      |> QueryManager.pagination(offset, limit)
+      |> QueryPaginationCount.apply_pagination_or_count(conn)
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,
