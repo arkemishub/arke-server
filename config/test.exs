@@ -1,5 +1,12 @@
 import Config
 
+System.put_env(
+  DB_USER: "postgres",
+  DB_PASSWORD: "postgres",
+  DB_NAME: "myapp_test",
+  DB_HOSTNAME: "localhost"
+)
+
 config :arke,
   persistence: %{
     arke_postgres: %{
@@ -21,8 +28,8 @@ config :arke_auth, ArkeAuth.Guardian,
 config :arke_server, ecto_repos: [ArkePostgres.Repo]
 
 config :arke_postgres, ArkePostgres.Repo,
-  username: "postgres",
-  password: "postgres",
-  database: System.get_env("DB_NAME") || "myapp_test",
-  hostname: System.get_env("DB_HOSTNAME") || "localhost",
+  username: System.get_env("DB_USER"),
+  password: System.get_env("DB_PASSWORD"),
+  database: System.get_env("DB_NAME"),
+  hostname: System.get_env("DB_HOSTNAME"),
   pool: Ecto.Adapters.SQL.Sandbox
