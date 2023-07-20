@@ -101,12 +101,13 @@ defmodule ArkeServer.UnitController do
     project = conn.assigns[:arke_project]
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
     QueryManager.update(conn.assigns[:unit], data_as_klist(params))
     |> case do
       {:ok, unit} ->
         ResponseManager.send_resp(conn, 200, %{
-          content: StructManager.encode(unit, load_links: load_links, type: :json)
+          content: StructManager.encode(unit, load_links: load_links, load_values: load_values, type: :json)
         })
 
       {:error, error} ->

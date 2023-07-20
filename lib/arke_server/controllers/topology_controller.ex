@@ -111,6 +111,7 @@ defmodule ArkeServer.TopologyController do
 
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
     {count, units} =
       QueryManager.query(project: project)
@@ -124,7 +125,7 @@ defmodule ArkeServer.TopologyController do
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,
-      items: StructManager.encode(units, load_links: load_links, type: :json)
+      items: StructManager.encode(units, load_links: load_links, load_values: load_values, type: :json)
     })
   end
 
@@ -142,6 +143,7 @@ defmodule ArkeServer.TopologyController do
 
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
     metadata =
       with true <- Map.has_key?(params, "metadata"),
@@ -154,7 +156,7 @@ defmodule ArkeServer.TopologyController do
         ResponseManager.send_resp(
           conn,
           201,
-          StructManager.encode(unit, load_links: load_links, type: :json)
+          StructManager.encode(unit, load_links: load_links, load_values: load_values, type: :json)
         )
 
       {:error, error} ->
@@ -204,12 +206,13 @@ defmodule ArkeServer.TopologyController do
 
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
     LinkManager.add_node(project, arke_id, parameter_id, "parameter", metadata)
     |> case do
       {:ok, unit} ->
         ResponseManager.send_resp(conn, 201, %{
-          content: StructManager.encode(unit, load_links: load_links, type: :json)
+          content: StructManager.encode(unit, load_links: load_links, load_values: load_values, type: :json)
         })
 
       {:error, error} ->

@@ -161,9 +161,10 @@ defmodule ArkeServer.ArkeController do
   def get_unit(conn, %{"unit_id" => _unit_id}) do
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
     ResponseManager.send_resp(conn, 200, %{
-      content: StructManager.encode(conn.assigns[:unit], load_links: load_links, type: :json)
+      content: StructManager.encode(conn.assigns[:unit], load_links: load_links, load_values: load_values, type: :json)
     })
   end
 
@@ -177,12 +178,13 @@ defmodule ArkeServer.ArkeController do
 
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
     QueryManager.create(project, arke, data_as_klist(params))
     |> case do
       {:ok, unit} ->
         ResponseManager.send_resp(conn, 200, %{
-          content: StructManager.encode(unit, load_links: load_links, type: :json)
+          content: StructManager.encode(unit, load_links: load_links, load_values: load_values, type: :json)
         })
 
       {:error, error} ->
@@ -212,6 +214,7 @@ defmodule ArkeServer.ArkeController do
 
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
     {count, units} =
       QueryManager.query(project: project, arke: id)
@@ -220,7 +223,7 @@ defmodule ArkeServer.ArkeController do
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,
-      items: StructManager.encode(units, load_links: load_links, type: :json)
+      items: StructManager.encode(units, load_links: load_links, load_values: load_values, type: :json)
     })
   end
 

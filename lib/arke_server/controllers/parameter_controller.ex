@@ -34,6 +34,7 @@ defmodule ArkeServer.ParameterController do
 
     # TODO handle query parameters with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
     {count, units} = {0, []}
     # QueryManager.query(project: project)
@@ -44,7 +45,7 @@ defmodule ArkeServer.ParameterController do
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,
-      items: StructManager.encode(units, type: :json)
+      items: StructManager.encode(units, load_links: load_links, load_values: load_values, type: :json)
     })
   end
 
