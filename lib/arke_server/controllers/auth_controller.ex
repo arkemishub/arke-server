@@ -18,10 +18,12 @@ defmodule ArkeServer.AuthController do
              """ && false
 
   use ArkeServer, :controller
+  alias ElixirSense.Plugins.Ecto.Query
   alias ArkeServer.ResponseManager
   alias ArkeAuth.Core.{User, Auth}
   alias Arke.Boundary.ArkeManager
-  alias Arke.QueryManager
+  alias Arke.{QueryManager, LinkManager}
+  alias Arke.Utils.ErrorGenerator, as: Error
 
   alias ArkeServer.Openapi.Responses
 
@@ -87,6 +89,28 @@ defmodule ArkeServer.AuthController do
       operationId: "ArkeServer.AuthController.verify",
       security: [%{"authorization" => []}],
       responses: Responses.get_responses([201, 204])
+    }
+  end
+
+  def create_token() do
+    %Operation{
+      tags: ["Auth"],
+      summary: "Send email to reset passsword",
+      description: "Send an email containing a link to reset the password",
+      operationId: "ArkeServer.AuthController.create_token",
+      security: [],
+      responses: Responses.get_responses([200, 400])
+    }
+  end
+
+  def reset_password() do
+    %Operation{
+      tags: ["Auth"],
+      summary: "Reset the user password",
+      description: "Reset the user password",
+      operationId: "ArkeServer.AuthController.reset_password",
+      security: [],
+      responses: Responses.get_responses([200, 400])
     }
   end
 
@@ -167,7 +191,7 @@ defmodule ArkeServer.AuthController do
   end
 
   @doc """
-  Reset user password
+  Change user password
   """
   def change_password(conn, %{"old_password" => old_pwd, "password" => new_pwd} = params) do
     user = ArkeAuth.Guardian.Plug.current_resource(conn)
@@ -185,6 +209,72 @@ defmodule ArkeServer.AuthController do
   end
 
   def change_password(conn, _), do: ResponseManager.send_resp(conn, 400, nil)
+
+  @doc """
+  Reset user password
+  """
+  def create_token(conn, %{"email" => email} = _params) do
+    project = get_project(conn.assigns[:arke_project])
+
+    case QueryManager.get_by(email: email, project: :arke_system) do
+      nil ->
+        {:error, msg} = Error.create(:auth, "no user found with the given email")
+        ResponseManager.send_resp(conn, 400, nil, msg)
+
+      user ->
+        token_model = ArkeManager.get(:reset_password_token, :arke_system)
+
+        case QueryManager.create(project, token_model, %{user_id: to_string(user.id)}) do
+          {:error, error} ->
+            ResponseManager.send_resp(conn, 400, nil, error)
+
+          {:ok, unit} ->
+            url_token = unit.data.token
+            endpoint = "#{System.get_env("RESET_PASSWORD_ENDPOINT", "")}/#{url_token}"
+
+            case ArkeServer.EmailManager.send_email(
+                   to: Map.fetch!(user.data, :email),
+                   subject: "Reset Password",
+                   template_name: "reset_password",
+                   text: endpoint,
+                   custom_vars: %{"reset-endpoint": endpoint}
+                 ) do
+              {:ok, _} ->
+                ResponseManager.send_resp(conn, 200, nil)
+
+              {:error, {_code, error}} ->
+                ResponseManager.send_resp(conn, 400, nil, %{
+                  context: :auth,
+                  message: Map.get(error, "message")
+                })
+            end
+        end
+    end
+  end
+
+  def create_token(conn, _), do: ResponseManager.send_resp(conn, 400, nil)
+
+  def reset_password(conn, %{"new_password" => new_password, "token" => token} = params) do
+    # TODO check expiration
+    with %Arke.Core.Unit{} = token_unit <-
+           QueryManager.get_by(
+             arke_id: :reset_password_token,
+             token: token,
+             project: :arke_system
+           ),
+         %Arke.Core.Unit{} = user <-
+           QueryManager.get_by(id: token_unit.data.user_id, project: :arke_system),
+         {:ok, updated_user} <- User.update_password(user, new_password),
+         do: ResponseManager.send_resp(conn, 200, nil),
+         else:
+           (_ ->
+              ResponseManager.send_resp(conn, 400, nil, %{
+                context: :auth,
+                message: "invalid token"
+              }))
+  end
+
+  def reset_password(conn, _), do: ResponseManager.send_resp(conn, 400, nil)
 
   defp get_project(project) when is_nil(project), do: :arke_system
   defp get_project(project), do: project
