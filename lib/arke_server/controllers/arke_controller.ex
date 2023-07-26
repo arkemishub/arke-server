@@ -22,7 +22,7 @@ defmodule ArkeServer.ArkeController do
   alias Arke.Boundary.ArkeManager
   alias UnitSerializer
   alias ArkeServer.ResponseManager
-  alias ArkeServer.Utils.{QueryFilters, QueryOrder, QueryProcessor}
+  alias ArkeServer.Utils.{QueryFilters, QueryProcessor}
 
   alias ArkeServer.Openapi.Responses
 
@@ -243,17 +243,13 @@ defmodule ArkeServer.ArkeController do
        """ && false
   def get_groups(conn, %{"arke_id" => id}) do
     project = conn.assigns[:arke_project]
-    offset = Map.get(conn.query_params, "offset", nil)
-    limit = Map.get(conn.query_params, "limit", nil)
-    order = Map.get(conn.query_params, "order", [])
     arke = ArkeManager.get(id, project)
 
     {count, units} =
       QueryManager.query(project: project, arke: :group)
       |> QueryManager.link(arke, direction: :parent, type: "group")
       |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-      |> QueryOrder.apply_order(order)
-      |> QueryManager.pagination(offset, limit)
+      |> QueryProcessor.process_query(conn.query_params)
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,

@@ -8,7 +8,7 @@ defmodule ArkeServer.TopologyController do
   alias Arke.{QueryManager, LinkManager, StructManager}
   alias UnitSerializer
   alias ArkeServer.ResponseManager
-  alias ArkeServer.Utils.{QueryFilters, QueryOrder}
+  alias ArkeServer.Utils.{QueryFilters, QueryProcessor}
   alias ArkeServer.Openapi.Responses
 
   alias OpenApiSpex.{Operation, Reference}
@@ -105,9 +105,6 @@ defmodule ArkeServer.TopologyController do
     direction = String.to_existing_atom(direction)
     depth = Map.get(conn.query_params, "depth", nil)
     link_type = Map.get(conn.query_params, "link_type", nil)
-    offset = Map.get(conn.query_params, "offset", nil)
-    limit = Map.get(conn.query_params, "limit", nil)
-    order = Map.get(conn.query_params, "order", [])
 
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
@@ -121,12 +118,12 @@ defmodule ArkeServer.TopologyController do
         type: link_type
       )
       |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-      |> QueryOrder.apply_order(order)
-      |> QueryManager.pagination(offset, limit)
+      |> QueryProcessor.process_query(conn.query_params)
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,
-      items: StructManager.encode(units, load_links: load_links, load_values: load_values, type: :json)
+      items:
+        StructManager.encode(units, load_links: load_links, load_values: load_values, type: :json)
     })
   end
 
@@ -213,7 +210,12 @@ defmodule ArkeServer.TopologyController do
     |> case do
       {:ok, unit} ->
         ResponseManager.send_resp(conn, 201, %{
-          content: StructManager.encode(unit, load_links: load_links, load_values: load_values, type: :json)
+          content:
+            StructManager.encode(unit,
+              load_links: load_links,
+              load_values: load_values,
+              type: :json
+            )
         })
 
       {:error, error} ->
