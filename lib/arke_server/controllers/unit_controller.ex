@@ -18,7 +18,7 @@ defmodule ArkeServer.UnitController do
   alias Arke.Boundary.{ArkeManager, ParameterManager}
   alias UnitSerializer
   alias ArkeServer.ResponseManager
-  alias ArkeServer.Utils.{QueryFilters, QueryOrder}
+  alias ArkeServer.Utils.{QueryFilters, QueryProcessor}
 
   alias(ArkeServer.Openapi.Responses)
   alias OpenApiSpex.{Operation, Reference}
@@ -76,15 +76,12 @@ defmodule ArkeServer.UnitController do
        """ && false
   def search(conn, %{}) do
     project = conn.assigns[:arke_project]
-    offset = Map.get(conn.query_params, "offset", 0)
     limit = Map.get(conn.query_params, "limit", 100)
-    order = Map.get(conn.query_params, "order", [])
 
     {count, units} =
       QueryManager.query(project: project)
       |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-      |> QueryOrder.apply_order(order)
-      |> QueryManager.pagination(offset, limit)
+      |> QueryProcessor.process_query(%{conn.query_params | "limit" => limit})
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,
@@ -108,7 +105,12 @@ defmodule ArkeServer.UnitController do
     |> case do
       {:ok, unit} ->
         ResponseManager.send_resp(conn, 200, %{
-          content: StructManager.encode(unit, load_links: load_links, load_values: load_values, type: :json)
+          content:
+            StructManager.encode(unit,
+              load_links: load_links,
+              load_values: load_values,
+              type: :json
+            )
         })
 
       {:error, error} ->

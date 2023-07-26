@@ -22,7 +22,7 @@ defmodule ArkeServer.ArkeController do
   alias Arke.Boundary.ArkeManager
   alias UnitSerializer
   alias ArkeServer.ResponseManager
-  alias ArkeServer.Utils.{QueryFilters, QueryOrder}
+  alias ArkeServer.Utils.{QueryFilters, QueryProcessor}
 
   alias ArkeServer.Openapi.Responses
 
@@ -164,7 +164,12 @@ defmodule ArkeServer.ArkeController do
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
     ResponseManager.send_resp(conn, 200, %{
-      content: StructManager.encode(conn.assigns[:unit], load_links: load_links, load_values: load_values, type: :json)
+      content:
+        StructManager.encode(conn.assigns[:unit],
+          load_links: load_links,
+          load_values: load_values,
+          type: :json
+        )
     })
   end
 
@@ -184,7 +189,12 @@ defmodule ArkeServer.ArkeController do
     |> case do
       {:ok, unit} ->
         ResponseManager.send_resp(conn, 200, %{
-          content: StructManager.encode(unit, load_links: load_links, load_values: load_values, type: :json)
+          content:
+            StructManager.encode(unit,
+              load_links: load_links,
+              load_values: load_values,
+              type: :json
+            )
         })
 
       {:error, error} ->
@@ -211,9 +221,6 @@ defmodule ArkeServer.ArkeController do
        """ && false
   def get_all_unit(conn, %{"arke_id" => id}) do
     project = conn.assigns[:arke_project]
-    offset = Map.get(conn.query_params, "offset", nil)
-    limit = Map.get(conn.query_params, "limit", nil)
-    order = Map.get(conn.query_params, "order", [])
 
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
@@ -222,12 +229,12 @@ defmodule ArkeServer.ArkeController do
     {count, units} =
       QueryManager.query(project: project, arke: id)
       |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-      |> QueryOrder.apply_order(order)
-      |> QueryManager.pagination(offset, limit)
+      |> QueryProcessor.process_query(conn.query_params)
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,
-      items: StructManager.encode(units, load_links: load_links, load_values: load_values, type: :json)
+      items:
+        StructManager.encode(units, load_links: load_links, load_values: load_values, type: :json)
     })
   end
 
@@ -236,17 +243,13 @@ defmodule ArkeServer.ArkeController do
        """ && false
   def get_groups(conn, %{"arke_id" => id}) do
     project = conn.assigns[:arke_project]
-    offset = Map.get(conn.query_params, "offset", nil)
-    limit = Map.get(conn.query_params, "limit", nil)
-    order = Map.get(conn.query_params, "order", [])
     arke = ArkeManager.get(id, project)
 
     {count, units} =
       QueryManager.query(project: project, arke: :group)
       |> QueryManager.link(arke, direction: :parent, type: "group")
       |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-      |> QueryOrder.apply_order(order)
-      |> QueryManager.pagination(offset, limit)
+      |> QueryProcessor.process_query(conn.query_params)
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,
