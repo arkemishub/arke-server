@@ -90,6 +90,17 @@ defmodule ArkeServer.AuthController do
     }
   end
 
+  def change_password_operation() do
+    %Operation{
+      tags: ["Auth"],
+      summary: "change_password",
+      description: "Check if the current access_token is still valid otherwise try to refresh it",
+      operationId: "ArkeServer.AuthController.change_password",
+      security: [%{"authorization" => []}],
+      responses: Responses.get_responses([200])
+    }
+  end
+
   # ------- end OPENAPI spec -------
 
   defp data_as_klist(data) do

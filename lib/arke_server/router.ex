@@ -23,6 +23,14 @@ defmodule ArkeServer.Router do
     plug(ArkeServer.Plugs.NotAuthPipeline)
   end
 
+  pipeline :browser do
+    plug(:accepts, ["html"])
+    plug(:fetch_session)
+    plug(:fetch_flash)
+    plug(:protect_from_forgery)
+    plug(:put_secure_browser_headers)
+  end
+
   pipeline :auth_api do
     plug(:accepts, ["json"])
     plug(ArkeServer.Plugs.AuthPipeline)
@@ -57,6 +65,13 @@ defmodule ArkeServer.Router do
     scope "/auth" do
       post("/signin", AuthController, :signin)
       post("/signup", AuthController, :signup)
+
+      scope "/:provider" do
+        pipe_through(:browser)
+        get("/", OAuthController, :request)
+        get("/callback", OAuthController, :callback)
+        post("/callback", OAuthController, :callback)
+      end
 
       pipe_through(:api)
       post("/refresh", AuthController, :refresh)
