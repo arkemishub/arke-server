@@ -85,9 +85,9 @@ defmodule ArkeServer.OAuthController do
       type: "customer"
     }
 
-    with {:ok, user} <- QueryManager.create(:arke_system, user_model, user_data),
+    with {:ok, user} <- check_user(user_data),
          {:ok, user, access_token, refresh_token} <-
-           Auth.validate_credentials(email, pwd, :arke_system) do
+           Auth.create_tokens(user) do
       content =
         Map.merge(Arke.StructManager.encode(user, type: :json), %{
           access_token: access_token,
@@ -97,6 +97,13 @@ defmodule ArkeServer.OAuthController do
       ResponseManager.send_resp(conn, 200, %{content: content})
     else
       {:error, reason} -> ResponseManager.send_resp(conn, 400, nil, reason)
+    end
+  end
+
+  defp check_user(user_data) do
+    case QueryManager.get_by(project: :arke_system, email: user_data.email) do
+      nil -> QueryManager.create(:arke_system, user_model, user_data)
+      user -> {:ok, user}
     end
   end
 end
