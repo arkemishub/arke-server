@@ -155,9 +155,11 @@ defmodule ArkeServer.AuthController do
   """
   def refresh(conn, _) do
     user = ArkeAuth.Guardian.Plug.current_resource(conn)
+    # get token from conn req_headers or params
     token = ArkeAuth.Guardian.Plug.current_token(conn)
+    provider = "identity"
 
-    Auth.refresh_tokens(user, token)
+    ArkeServer.Utils.AuthTokenHandler.refresh_token(conn, token, provider)
     |> case do
       {:ok, access_token, refresh_token} ->
         ResponseManager.send_resp(conn, 200, %{

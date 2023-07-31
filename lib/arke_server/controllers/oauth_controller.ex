@@ -71,7 +71,6 @@ defmodule ArkeServer.OAuthController do
     do: ResponseManager.send_resp(conn, 400)
 
   def callback(%{assigns: %{ueberauth_auth: auth}} = conn, _params) do
-    user_model = ArkeManager.get(:user, :arke_system)
     email = auth.info.email
     pwd = UUID.uuid4()
 
@@ -102,8 +101,12 @@ defmodule ArkeServer.OAuthController do
 
   defp check_user(user_data) do
     case QueryManager.get_by(project: :arke_system, email: user_data.email) do
-      nil -> QueryManager.create(:arke_system, user_model, user_data)
-      user -> {:ok, user}
+      nil ->
+        user_model = ArkeManager.get(:user, :arke_system)
+        QueryManager.create(:arke_system, user_model, user_data)
+
+      user ->
+        {:ok, user}
     end
   end
 end
