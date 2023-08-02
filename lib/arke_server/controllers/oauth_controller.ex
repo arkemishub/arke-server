@@ -22,8 +22,7 @@ defmodule ArkeServer.OAuthController do
 
   plug(Ueberauth,
     otp_app: :arke_server,
-    providers: [:google, :github, :facebook, :apple],
-    base_path: "/lib/auth"
+    base_path: "/lib/auth/signin"
   )
 
   # --- Openapi deps ---
@@ -32,11 +31,10 @@ defmodule ArkeServer.OAuthController do
   # --- end Openapi deps ---
   alias Ueberauth.Strategy.Helpers
   alias ArkeServer.ResponseManager
-  alias ArkeAuth.Core.{User, Auth}
+  alias ArkeAuth.Core.{Auth}
   alias Arke.Boundary.ArkeManager
-  alias Arke.{QueryManager, LinkManager}
+  alias Arke.{QueryManager}
   alias Arke.Utils.ErrorGenerator, as: Error
-  alias Arke.DatetimeHandler
 
   # ------- start OPENAPI spec -------
   def open_api_operation(action) do
@@ -64,24 +62,29 @@ defmodule ArkeServer.OAuthController do
   # This is the fallback if the given provider does not exists.
   # Usually it is used for the `identity` provider (username, password)
   def request(conn, _params) do
-    ResponseManager.send_resp(conn, 404, "")
+    ResponseManager.send_resp(conn, 404, nil)
   end
 
   def callback(%{assigns: %{ueberauth_failure: _fails}} = conn, _params),
     do: ResponseManager.send_resp(conn, 400)
 
   def callback(%{assigns: %{ueberauth_auth: auth}} = conn, _params) do
-    email = auth.info.email
+    username = UUID.uuid1(:hex)
+    email = "#{username}@foo.domain"
     pwd = UUID.uuid4()
+
+    IO.inspect(auth, label: "auth12")
 
     user_data = %{
       first_name: auth.info.first_name,
       last_name: auth.info.last_name,
       email: email,
-      username: email,
+      username: username,
       phone_number: Map.get(auth.info, :phone, nil),
       password: pwd,
-      type: "customer"
+      type: "customer",
+      oauth_id: to_string(auth.uid),
+      metadata: %{"oauth" => %{"provider" => auth.provider}}
     }
 
     with {:ok, user} <- check_user(user_data),
@@ -100,7 +103,7 @@ defmodule ArkeServer.OAuthController do
   end
 
   defp check_user(user_data) do
-    case QueryManager.get_by(project: :arke_system, email: user_data.email) do
+    case QueryManager.get_by(project: :arke_system, oauth_id: user_data.oauth_id) do
       nil ->
         user_model = ArkeManager.get(:user, :arke_system)
         QueryManager.create(:arke_system, user_model, user_data)

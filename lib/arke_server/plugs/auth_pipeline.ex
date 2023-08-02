@@ -17,8 +17,14 @@ defmodule ArkeServer.Plugs.AuthPipeline do
              Pipeline To ensure that the user is always authenticated and authorized
              """ && false
 
-  plug(ArkeServer.Plugs.VerifyToken, realm: "Bearer")
-  plug(ArkeServer.Plugs.LoadResource)
+  use Guardian.Plug.Pipeline,
+    otp_app: :arke_auth,
+    module: ArkeAuth.Guardian,
+    error_handler: ArkeServer.ErrorHandlers.Auth
+
+  plug(Guardian.Plug.VerifyHeader, scheme: "Bearer")
+  plug(Guardian.Plug.EnsureAuthenticated)
+  plug(Guardian.Plug.LoadResource)
 end
 
 defmodule ArkeServer.Plugs.NotAuthPipeline do
@@ -30,6 +36,5 @@ defmodule ArkeServer.Plugs.NotAuthPipeline do
     module: ArkeAuth.Guardian,
     error_handler: ArkeServer.ErrorHandlers.Auth
 
-  plug(Guardian.Plug.VerifyHeader, realm: "Bearer")
-  plug(Guardian.Plug.LoadResource)
+  plug(Guardian.Plug.EnsureNotAuthenticated)
 end

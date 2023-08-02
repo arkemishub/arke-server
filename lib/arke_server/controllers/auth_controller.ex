@@ -22,6 +22,7 @@ defmodule ArkeServer.AuthController do
   alias ArkeAuth.Core.{User, Auth}
   alias Arke.Boundary.ArkeManager
   alias Arke.QueryManager
+  alias Arke.Utils.ErrorGenerator, as: Error
 
   alias ArkeServer.Openapi.Responses
 
@@ -121,9 +122,18 @@ defmodule ArkeServer.AuthController do
           content: Arke.StructManager.encode(user, type: :json)
         })
 
+      {:error, :token_expired} ->
+        {:error, msg} = Error.create(:auth, "token expired/invalid")
+        ResponseManager.send_resp(conn, 400, nil, msg)
+
       {:error, error} ->
         ResponseManager.send_resp(conn, 400, nil, error)
     end
+  end
+
+  def signup(conn, _params) do
+    {:error, msg} = Error.create(:auth, "missing username/password")
+    ResponseManager.send_resp(conn, 400, msg)
   end
 
   @doc """
@@ -148,23 +158,29 @@ defmodule ArkeServer.AuthController do
     end
   end
 
-  def signin(conn, _params), do: ResponseManager.send_resp(conn, 404, nil)
+  def signin(conn, _params) do
+    {:error, msg} = Error.create(:auth, "missing username/password")
+    ResponseManager.send_resp(conn, 400, msg)
+  end
 
   @doc """
-  Refresh the JWT tokens. Returns 200 and the tokes if ok
+  Refresh the JWT tokens. Returns 200 and the tokens if ok
   """
-  def refresh(conn, _) do
-    user = ArkeAuth.Guardian.Plug.current_resource(conn)
-    # get token from conn req_headers or params
-    token = ArkeAuth.Guardian.Plug.current_token(conn)
-    provider = "identity"
+  def refresh(conn, %{"refresh_token" => old_r_token} = _params) do
+    with {:ok, %{"sub" => %{"id" => user_id}} = _token} <-
+           ArkeAuth.Guardian.decode_and_verify(old_r_token),
+         %Arke.Core.Unit{} = user <- QueryManager.get_by(id: user_id, project: :arke_system),
+         {:ok, access_token, refresh_token} <- Auth.refresh_tokens(user, old_r_token) do
+      ResponseManager.send_resp(conn, 200, %{
+        content: %{access_token: access_token, refresh_token: refresh_token}
+      })
+    else
+      nil ->
+        ResponseManager.send_resp(conn, 401, nil, nil)
 
-    ArkeServer.Utils.AuthTokenHandler.refresh_token(conn, token, provider)
-    |> case do
-      {:ok, access_token, refresh_token} ->
-        ResponseManager.send_resp(conn, 200, %{
-          content: %{access_token: access_token, refresh_token: refresh_token}
-        })
+      {:error, :token_expired} ->
+        {:error, msg} = Error.create(:auth, "token expired/invalid")
+        ResponseManager.send_resp(conn, 400, nil, msg)
 
       {:error, error} ->
         ResponseManager.send_resp(conn, 400, nil, error)
