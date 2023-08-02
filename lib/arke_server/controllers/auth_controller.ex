@@ -230,7 +230,7 @@ defmodule ArkeServer.AuthController do
     case QueryManager.get_by(email: email, project: :arke_system) do
       nil ->
         {:error, msg} = Error.create(:auth, "no user found with the given email")
-        ResponseManager.send_resp(conn, 400, nil, msg)
+        ResponseManager.send_resp(conn, 200, nil)
 
       user ->
         old_token_list =
