@@ -4,10 +4,9 @@ on:
   # Triggers the workflow on pull request events but only for the main branch
   pull_request:
     branches: # matches refs/heads/main``
-      - 'main'
+      - "main"
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 
 jobs:
   test:
@@ -29,10 +28,11 @@ jobs:
     strategy:
       matrix:
         otp: [24.0]
-        elixir: [1.13.2]
+        elixir: [1.13.4]
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-elixir@v1
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.otp}}
           elixir-version: ${{matrix.elixir}}
@@ -57,4 +57,3 @@ jobs:
           directory: cover
           fail_ci_if_error: true
           verbose: true
-
