@@ -19,6 +19,7 @@ defmodule ArkeServer.OAuthController do
 
   import Plug.Conn
   use ArkeServer, :controller
+  alias Arke.Boundary.GroupManager
 
   plug(Ueberauth,
     otp_app: :arke_server,
@@ -29,10 +30,10 @@ defmodule ArkeServer.OAuthController do
   alias ArkeServer.Openapi.Responses
   alias OpenApiSpex.{Operation, Reference}
   # --- end Openapi deps ---
-  alias Ueberauth.Strategy.Helpers
   alias ArkeServer.ResponseManager
   alias ArkeAuth.Core.{Auth}
   alias Arke.Boundary.ArkeManager
+  alias Arke.LinkManager
   alias Arke.{QueryManager}
   alias Arke.Utils.ErrorGenerator, as: Error
 
@@ -68,26 +69,30 @@ defmodule ArkeServer.OAuthController do
   def callback(%{assigns: %{ueberauth_failure: _fails}} = conn, _params),
     do: ResponseManager.send_resp(conn, 400)
 
-  def callback(%{assigns: %{ueberauth_auth: auth}} = conn, _params) do
-    username = UUID.uuid1(:hex)
-    email = "#{username}@foo.domain"
-    pwd = UUID.uuid4()
+  def callback(
+        %{assigns: %{ueberauth_auth: %{provider: provider} = auth}, req_headers: header} = conn,
+        _params
+      ) do
+    # TODO: if headers has authorization and the token get the user then call
+    # connect_to_user else below
+    oauth_provider_supported =
+      GroupManager.get(:oauth_provider, :arke_system).data.arke_list
+      |> Enum.into([], fn unit -> String.replace(to_string(unit.id), "oauth_", "") end)
 
-    IO.inspect(auth, label: "auth12")
+    case String.downcase(to_string(provider)) in oauth_provider_supported do
+      true ->
+        init_oauth_flow(conn, auth)
 
-    user_data = %{
-      first_name: auth.info.first_name,
-      last_name: auth.info.last_name,
-      email: email,
-      username: username,
-      phone_number: Map.get(auth.info, :phone, nil),
-      password: pwd,
-      type: "customer",
-      oauth_id: to_string(auth.uid),
-      metadata: %{"oauth" => %{"provider" => auth.provider}}
-    }
+      false ->
+        {:error, msg} =
+          Error.create(:auth, "the supported OAuth providers are: #{oauth_provider_supported}")
 
-    with {:ok, user} <- check_user(user_data),
+        ResponseManager.send_resp(conn, 400, msg)
+    end
+  end
+
+  defp init_oauth_flow(conn, auth) do
+    with {:ok, user} <- check_oauth(auth),
          {:ok, user, access_token, refresh_token} <-
            Auth.create_tokens(user) do
       content =
@@ -98,18 +103,80 @@ defmodule ArkeServer.OAuthController do
 
       ResponseManager.send_resp(conn, 200, %{content: content})
     else
-      {:error, reason} -> ResponseManager.send_resp(conn, 400, nil, reason)
+      {:error, reason} -> ResponseManager.send_resp(conn, 400, reason)
     end
   end
 
-  defp check_user(user_data) do
-    case QueryManager.get_by(project: :arke_system, oauth_id: user_data.oauth_id) do
-      nil ->
-        user_model = ArkeManager.get(:user, :arke_system)
-        QueryManager.create(:arke_system, user_model, user_data)
+  defp check_oauth(auth) do
+    username = UUID.uuid1(:hex)
+    email = auth.info.email || "#{username}@foo.domain"
+    oauth_id = to_string(auth.uid)
+    provider_arke_id = String.to_existing_atom("oauth_#{auth.provider}")
 
-      user ->
-        {:ok, user}
+    oauth_user_data = %{
+      first_name: auth.info.first_name,
+      last_name: auth.info.last_name,
+      email: email,
+      oauth_id: oauth_id,
+      username: username
+    }
+
+    # check if a unit with the given id already exists
+    case QueryManager.get_by(project: :arke_system, arke_id: provider_arke_id, oauth_id: oauth_id) do
+      nil ->
+        oauth_model = ArkeManager.get(provider_arke_id, :arke_system)
+        # create the unit in the given provider and with the given uid
+
+        with {:ok, oauth_unit} <- QueryManager.create(:arke_system, oauth_model, oauth_user_data),
+             # create also a user
+             {:ok, user} <- create_user(oauth_user_data),
+             # connect the two
+             {:ok, _link} <- create_link(user.id, oauth_unit.id, auth.provider) do
+          {:ok, user}
+        else
+          {:error, msg} -> {:error, msg}
+          err -> raise err
+        end
+
+      oauth_unit ->
+        # check if there is a link between the given oauth_unit and an user
+        case QueryManager.query(project: :arke_system)
+             |> QueryManager.link(oauth_unit,
+               depth: 1,
+               direction: :parent,
+               type: "oauth"
+             )
+             |> QueryManager.all() do
+          [] ->
+            # create a user and connect the two
+            with {:ok, user} <- create_user(oauth_user_data),
+                 {:ok, _link} <- create_link(user.id, oauth_unit.id, auth.provider) do
+              {:ok, user}
+            else
+              {:error, msg} ->
+                {:error, msg}
+
+              error ->
+                raise error
+            end
+
+          # everything good log in
+          userList ->
+            {:ok, List.first(userList)}
+        end
     end
+  end
+
+  defp create_user(user_data) do
+    user_model = ArkeManager.get(:user, :arke_system)
+    pwd = UUID.uuid4()
+    updated_data = Map.put(user_data, :password, pwd) |> Map.put(:type, "customer")
+    QueryManager.create(:arke_system, user_model, updated_data)
+  end
+
+  defp create_link(parent_id, child_id, provider) do
+    LinkManager.add_node(:arke_system, to_string(parent_id), to_string(child_id), "oauth", %{
+      provider: provider
+    })
   end
 end
