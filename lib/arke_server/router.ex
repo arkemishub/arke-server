@@ -67,6 +67,8 @@ defmodule ArkeServer.Router do
       post("/signup", AuthController, :signup)
 
       scope "/signin/:provider" do
+        post("/", OAuthController, :verify)
+
         pipe_through(:browser)
         get("/", OAuthController, :request)
         get("/callback", OAuthController, :callback)
