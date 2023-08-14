@@ -1,30 +1,49 @@
-defmodule ArkeServer.OAuth.Google do
-  alias Arke.Utils.ErrorGenerator, as: Error
+defmodule ArkeServer.OAuth.Provider.Google do
   alias Arke.DatetimeHandler, as: DatetimeHandler
 
-  def validate_token(token) do
+  use ArkeServer.OAuth.Core
+
+  @private_oauth_key :arke_server_oauth
+
+  def info(conn) do
+    token_data = conn.private[@private_oauth_key]
+
+    %UserInfo{
+      first_name: token_data["given_name"],
+      last_name: token_data["family_name"],
+      email: token_data["email"]
+    }
+  end
+
+  def uid(conn) do
+    conn.private[@private_oauth_key]["sub"]
+  end
+
+  def handle_cleanup(conn), do: put_private(conn, @private_oauth_key, nil)
+
+  def handle_request(%Plug.Conn{query_params: %{"token" => token}} = conn) do
     try do
       header = JOSE.JWT.peek_protected(token).fields
 
       with {:ok, jwk} <- get_certs(header),
            {true, %JOSE.JWT{} = jwt, _jws} <- JOSE.JWT.verify(jwk, token),
-           {:ok, data} <-
-             validate_jwt(jwt) do
-        {:ok,
-         %{
-           uid: data["sub"],
-           provider: "google",
-           info: %{
-             first_name: data["given_name"],
-             last_name: data["family_name"],
-             email: data["email"]
-           }
-         }}
+           {:ok, data} <- validate_jwt(jwt) do
+        put_private(conn, @private_oauth_key, data)
       else
-        {:error, msg} -> {:error, msg}
+        {:error, msg} ->
+          Plug.Conn.assign(
+            conn,
+            :arke_server_oauth_failure,
+            msg
+          )
       end
     rescue
-      _ -> Error.create(:auth, "invalid token")
+      _ ->
+        Plug.Conn.assign(
+          conn,
+          :arke_server_oauth_failure,
+          Error.create(:auth, "invalid token")
+        )
     end
   end
 

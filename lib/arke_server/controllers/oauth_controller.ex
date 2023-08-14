@@ -20,17 +20,7 @@ defmodule ArkeServer.OAuthController do
   import Plug.Conn
   use ArkeServer, :controller
   alias Arke.Boundary.GroupManager
-  alias ArkeServer.OAuth.{Google, Facebook}
 
-  plug(Ueberauth,
-    otp_app: :arke_server,
-    base_path: "/lib/auth/signin"
-  )
-
-  # --- Openapi deps ---
-  alias ArkeServer.Openapi.Responses
-  alias OpenApiSpex.{Operation, Reference}
-  # --- end Openapi deps ---
   alias ArkeServer.ResponseManager
   alias ArkeAuth.Core.{Auth}
   alias Arke.Boundary.ArkeManager
@@ -38,106 +28,60 @@ defmodule ArkeServer.OAuthController do
   alias Arke.{QueryManager}
   alias Arke.Utils.ErrorGenerator, as: Error
 
-  # ------- start OPENAPI spec -------
-  def open_api_operation(action) do
-    unless(action in [:callback]) do
-      operation = String.to_existing_atom("#{action}_operation")
-      apply(__MODULE__, operation, [])
-    end
-  end
-
-  def request_operation() do
-    %Operation{
-      tags: ["OAuth"],
-      summary: "Init OAuth flow",
-      parameters: [%Reference{"$ref": "#/components/parameters/provider"}],
-      description:
-        "Start the OAuth flow for the given provider. Available providers are: `apple`, `github`, `facebook`, `google`",
-      operationId: "ArkeServer.AuthController.request",
-      security: [],
-      responses: Responses.get_responses([302, 404])
-    }
-  end
-
-  def verify_operation() do
-    %Operation{
-      tags: ["OAuth"],
-      summary: "Verify",
-      description:
-        "Verify the given token after a client sign-in. Available providers are: `apple`, `github`, `facebook`, `google`",
-      operationId: "ArkeServer.AuthController.verify",
-      security: [],
-      responses: Responses.get_responses([302, 404])
-    }
-  end
-
-  # ------- end OPENAPI spec -------
-
   # This is the fallback if the given provider does not exists.
   # Usually it is used for the `identity` provider (username, password)
   def request(conn, _params) do
     ResponseManager.send_resp(conn, 404, nil)
   end
 
-  def verify(
-        %Plug.Conn{query_params: %{"token" => token}} = conn,
-        %{"provider" => "google"} = _params
+  # ------- Client Side -------
+  # The login happens client_side only the token is sent to the REST API
+
+  def handle_client_login(
+        %{assigns: %{arke_server_oauth: %{provider: provider} = auth}, req_headers: _header} =
+          conn,
+        _params
       ) do
-    with {:ok, data} <- Google.validate_token(token),
-         {:ok, body} <- init_oauth_flow(data) do
-      ResponseManager.send_resp(conn, 200, %{content: body})
-    else
-      {:error, msg} ->
-        ResponseManager.send_resp(conn, 400, msg)
+    case init_oauth_flow(auth, provider) do
+      {:ok, body} -> ResponseManager.send_resp(conn, 200, %{content: body})
+      {:error, msg} -> ResponseManager.send_resp(conn, 400, msg)
     end
   end
 
-  def verify(
-        %Plug.Conn{query_params: %{"token" => token}} = conn,
-        %{"provider" => "facebook"} = _params
+  def handle_client_login(
+        %{assigns: %{arke_server_oauth_failure: msg}} = conn,
+        _params
       ) do
-    with {:ok, data} <- Facebook.validate_token(token),
-         {:ok, body} <- init_oauth_flow(data) do
-      ResponseManager.send_resp(conn, 200, %{content: body})
-    else
-      {:error, msg} ->
-        ResponseManager.send_resp(conn, 400, msg)
-    end
+    ResponseManager.send_resp(conn, 400, msg)
   end
 
-  def verify(conn, _params) do
+  def handle_client_login(conn, _params) do
     {:error, msg} = Error.create(:auth, "invalid token/provider")
     ResponseManager.send_resp(conn, 400, msg)
   end
+
+  # ------- Client Side -------
+
+  # ------- Using redirects -------
 
   def callback(%{assigns: %{ueberauth_failure: _fails}} = conn, _params),
     do: ResponseManager.send_resp(conn, 400)
 
   def callback(
-        %{assigns: %{ueberauth_auth: %{provider: provider} = auth}, req_headers: header} = conn,
+        %{assigns: %{ueberauth_auth: %{provider: provider} = auth}, req_headers: _header} = conn,
         _params
       ) do
-    oauth_provider_supported =
-      GroupManager.get(:oauth_provider, :arke_system).data.arke_list
-      |> Enum.into([], fn unit -> String.replace(to_string(unit.id), "oauth_", "") end)
-
-    case String.downcase(to_string(provider)) in oauth_provider_supported do
-      true ->
-        case init_oauth_flow(auth) do
-          {:ok, body} -> ResponseManager.send_resp(conn, 200, %{content: body})
-          {:error, msg} -> ResponseManager.send_resp(conn, 400, msg)
-        end
-
-      false ->
-        {:error, msg} =
-          Error.create(:auth, "the supported OAuth providers are: #{oauth_provider_supported}")
-
-        ResponseManager.send_resp(conn, 400, msg)
+    case init_oauth_flow(auth, provider) do
+      {:ok, body} -> ResponseManager.send_resp(conn, 200, %{content: body})
+      {:error, msg} -> ResponseManager.send_resp(conn, 400, msg)
     end
   end
 
-  defp init_oauth_flow(auth_info) do
-    with {:ok, user} <- check_oauth(auth_info),
+  # ------- end Using redirects -------
+
+  defp init_oauth_flow(auth_info, provider) do
+    with {:ok, nil} <- check_provider(provider),
+         {:ok, user} <- check_oauth(auth_info),
          {:ok, user, access_token, refresh_token} <-
            Auth.create_tokens(user) do
       content =
@@ -149,6 +93,23 @@ defmodule ArkeServer.OAuthController do
       {:ok, content}
     else
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp check_provider(provider) do
+    oauth_provider_supported =
+      GroupManager.get(:oauth_provider, :arke_system).data.arke_list
+      |> Enum.into([], fn unit -> String.replace(to_string(unit.id), "oauth_", "") end)
+
+    case String.downcase(to_string(provider)) in oauth_provider_supported do
+      true ->
+        {:ok, nil}
+
+      false ->
+        Error.create(
+          :auth,
+          "the supported OAuth providers are: #{Enum.join(oauth_provider_supported, ", ")}"
+        )
     end
   end
 

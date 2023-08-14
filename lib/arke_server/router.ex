@@ -31,6 +31,15 @@ defmodule ArkeServer.Router do
     plug(:put_secure_browser_headers)
   end
 
+  pipeline :oauth do
+    plug(Ueberauth,
+      otp_app: :arke_server,
+      base_path: "/lib/auth/signin"
+    )
+
+    plug(ArkeServer.Plugs.OAuth)
+  end
+
   pipeline :auth_api do
     plug(:accepts, ["json"])
     plug(ArkeServer.Plugs.AuthPipeline)
@@ -67,7 +76,8 @@ defmodule ArkeServer.Router do
       post("/signup", AuthController, :signup)
 
       scope "/signin/:provider" do
-        post("/", OAuthController, :verify)
+        pipe_through(:oauth)
+        post("/", OAuthController, :handle_client_login)
 
         pipe_through(:browser)
         get("/", OAuthController, :request)
