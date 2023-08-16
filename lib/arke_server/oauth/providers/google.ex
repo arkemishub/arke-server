@@ -47,6 +47,16 @@ defmodule ArkeServer.OAuth.Provider.Google do
     end
   end
 
+  def handle_request(conn) do
+    {:error, msg} = Error.create(:auth, "token not found")
+
+    Plug.Conn.assign(
+      conn,
+      :arke_server_oauth_failure,
+      msg
+    )
+  end
+
   defp get_certs(%{"kid" => certificate_id}) do
     # get pem certs to validate the token later
     case HTTPoison.get("https://www.googleapis.com/oauth2/v1/certs") do

@@ -50,6 +50,16 @@ defmodule ArkeServer.OAuth.Provider.Facebook do
     end
   end
 
+  def handle_request(conn) do
+    {:error, msg} = Error.create(:auth, "token not found")
+
+    Plug.Conn.assign(
+      conn,
+      :arke_server_oauth_failure,
+      msg
+    )
+  end
+
   defp get_user_data(conn, token) do
     query_params = %{"fields" => "id,first_name,last_name,email", "access_token" => token}
 
