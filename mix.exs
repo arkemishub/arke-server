@@ -61,7 +61,9 @@ defmodule ArkeServer.MixProject do
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:arke, "~> 0.1.9"},
       {:arke_postgres, "~> 0.2.4"},
-      {:arke_auth, "~> 0.1.4"}
+      {:arke_auth, "~> 0.1.4"},
+      {:hackney, "~> 1.18"},
+      {:swoosh, "~> 1.11"},
     ])
   end
 
