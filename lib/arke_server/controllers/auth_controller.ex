@@ -120,12 +120,11 @@ defmodule ArkeServer.AuthController do
   """
   def signin(conn, %{"username" => username, "password" => password}) do
     project = get_project(conn.assigns[:arke_project])
-
     Auth.validate_credentials(username, password, project)
     |> case do
-      {:ok, user, access_token, refresh_token} ->
+      {:ok, member, access_token, refresh_token} ->
         content =
-          Map.merge(Arke.StructManager.encode(user, type: :json), %{
+          Map.merge(Arke.StructManager.encode(member, type: :json), %{
             access_token: access_token,
             refresh_token: refresh_token
           })

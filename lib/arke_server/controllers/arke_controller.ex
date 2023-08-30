@@ -209,23 +209,32 @@ defmodule ArkeServer.ArkeController do
        """ && false
   def get_all_unit(conn, %{"arke_id" => id}) do
     project = conn.assigns[:arke_project]
-    offset = Map.get(conn.query_params, "offset", nil)
-    limit = Map.get(conn.query_params, "limit", nil)
-    order = Map.get(conn.query_params, "order", [])
 
-    # TODO handle query parameter with plugs
-    load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    case get_permission(conn, id, :get)  do
+      {:ok, permission} ->
+        IO.inspect(permission)
 
-    {count, units} =
-      QueryManager.query(project: project, arke: id)
-      |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-      |> QueryOrder.apply_order(order)
-      |> QueryManager.pagination(offset, limit)
+        offset = Map.get(conn.query_params, "offset", nil)
+        limit = Map.get(conn.query_params, "limit", nil)
+        order = Map.get(conn.query_params, "order", [])
 
-    ResponseManager.send_resp(conn, 200, %{
-      count: count,
-      items: StructManager.encode(units, load_links: load_links, type: :json)
-    })
+        # TODO handle query parameter with plugs
+        load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+
+        {count, units} =
+          QueryManager.query(project: project, arke: id)
+          |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
+          |> QueryFilters.apply_query_filters(permission.filter)
+          |> QueryOrder.apply_order(order)
+          |> QueryManager.pagination(offset, limit)
+
+        ResponseManager.send_resp(conn, 200, %{
+          count: count,
+          items: StructManager.encode(units, load_links: load_links, type: :json)
+        })
+
+      {:error, :not_authorized} -> ResponseManager.send_resp(conn, 403, %{})
+    end
   end
 
   @doc """
@@ -250,4 +259,31 @@ defmodule ArkeServer.ArkeController do
       items: StructManager.encode(units, type: :json)
     })
   end
+
+  defp get_permission(conn, arke_id, action) do
+    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+    project = conn.assigns[:arke_project]
+    arke = ArkeManager.get(arke_id, project)
+
+    case ArkeAuth.Core.Member.get_permission(member, arke)  do
+      {:ok, permission} ->
+        case Map.get(permission, action, false) do
+          true ->
+            permission = get_permission_filter(conn, member, permission)
+            {:ok, permission}
+          false -> {:error, :not_authorized}
+        end
+      {:error, nil} -> {:error, :not_authorized}
+    end
+  end
+
+  defp get_permission_filter(conn, member, %{filter: nil}=permission), do: permission
+  defp get_permission_filter(conn, member, permission) do
+    filter = String.replace(permission.filter, "{{arke_member}}", Atom.to_string(member.id))
+    case QueryFilters.get_from_string(conn, filter) do
+      {:ok, data} -> Map.put(permission, :filter, data)
+      {:error, _msg} ->  Map.put(permission, :filter, nil)
+    end
+  end
+
 end
