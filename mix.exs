@@ -1,15 +1,21 @@
 defmodule ArkeServer.MixProject do
   use Mix.Project
 
+  @version "0.1.12"
+  @scm_url "https://github.com/arkemishub/arke-server"
+  @site_url "https://arkehub.com"
+
   def project do
     [
       app: :arke_server,
-      version: "0.1.10",
+      version: @version,
       build_path: "./_build",
       config_path: "./config/config.exs",
       deps_path: "./deps",
       lockfile: "./mix.lock",
       elixir: "~> 1.13",
+      source_url: @scm_url,
+      homepage_url: @site_url,
       dialyzer: [plt_add_apps: ~w[eex]a],
       description: description(),
       package: package(),
@@ -53,9 +59,11 @@ defmodule ArkeServer.MixProject do
       {:ymlr, "~> 2.0", only: :dev},
       {:excoveralls, "~> 0.10", only: :test},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      {:arke, "~> 0.1.8"},
-      {:arke_postgres, "~> 0.2.3"},
-      {:arke_auth, "~> 0.1.4"}
+      {:arke, "~> 0.1.12"},
+      {:arke_postgres, "~> 0.2.4"},
+      {:arke_auth, "~> 0.1.5"},
+      {:hackney, "~> 1.18"},
+      {:swoosh, "~> 1.11"},
     ])
   end
 
@@ -83,8 +91,8 @@ defmodule ArkeServer.MixProject do
       # These are the default files included in the package
       licenses: ["Apache-2.0"],
       links: %{
-        "Website" => "https://arkehub.com",
-        "Github" => "https://github.com/arkemishub/arke-server"
+        "Website" => @site_url,
+        "Github" => @scm_url
       }
     ]
   end
