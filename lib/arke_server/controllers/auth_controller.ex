@@ -29,6 +29,7 @@ defmodule ArkeServer.AuthController do
 
   alias OpenApiSpex.{Operation, Reference}
 
+
   # ------- start OPENAPI spec -------
   def open_api_operation(action) do
     operation = String.to_existing_atom("#{action}_operation")
@@ -155,6 +156,7 @@ defmodule ArkeServer.AuthController do
   """
   def signin(conn, %{"username" => username, "password" => password}) do
     project = get_project(conn.assigns[:arke_project])
+
     Auth.validate_credentials(username, password, project)
     |> case do
       {:ok, member, access_token, refresh_token} ->
@@ -224,7 +226,6 @@ defmodule ArkeServer.AuthController do
   Reset user password
   """
   def recover_password(conn, %{"email" => email} = _params) do
-    project = get_project(conn.assigns[:arke_project])
 
     case QueryManager.get_by(email: email, project: :arke_system) do
       nil ->
@@ -242,7 +243,7 @@ defmodule ArkeServer.AuthController do
         Enum.each(old_token_list, fn unit -> QueryManager.delete(:arke_system, unit) end)
         token_model = ArkeManager.get(:reset_password_token, :arke_system)
 
-        case QueryManager.create(project, token_model, %{user_id: to_string(user.id)}) do
+        case QueryManager.create(:arke_system, token_model, %{user_id: to_string(user.id)}) do
           {:error, error} ->
             ResponseManager.send_resp(conn, 400, nil, error)
 
