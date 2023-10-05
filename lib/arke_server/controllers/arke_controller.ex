@@ -174,12 +174,12 @@ defmodule ArkeServer.ArkeController do
   def create(%Plug.Conn{body_params: params} = conn, %{"arke_id" => id}) do
     # all arkes struct and gen server are on :arke_system so it won't be changed to project
     project = conn.assigns[:arke_project]
+    params = Map.put(params, "runtime_data", %{conn: conn})
     arke = ArkeManager.get(String.to_atom(id), project)
 
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
-
     QueryManager.create(project, arke, data_as_klist(params))
     |> case do
       {:ok, unit} ->
@@ -214,7 +214,6 @@ defmodule ArkeServer.ArkeController do
 
     case get_permission(conn, id, :get)  do
       {:ok, permission} ->
-        IO.inspect(permission)
 
         offset = Map.get(conn.query_params, "offset", nil)
         limit = Map.get(conn.query_params, "limit", nil)

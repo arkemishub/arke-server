@@ -19,12 +19,12 @@ defmodule ArkeServer.Router do
   use ArkeServer, :router
 
   pipeline :api do
-    plug(:accepts, ["json"])
+    plug(:accepts, ["json", "multipart"])
     plug(ArkeServer.Plugs.NotAuthPipeline)
   end
 
   pipeline :auth_api do
-    plug(:accepts, ["json"])
+    plug(:accepts, ["json", "multipart"])
     plug(ArkeServer.Plugs.AuthPipeline)
   end
 
