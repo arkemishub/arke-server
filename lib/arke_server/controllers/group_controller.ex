@@ -110,6 +110,7 @@ defmodule ArkeServer.GroupController do
     group = GroupManager.get(String.to_existing_atom(group_id), project)
     parameters = GroupManager.get_parameters(group)
 
+
     tmp_arke = Unit.load(arke, label: group.data.label, parameters: parameters, metadata: %{project: project})
     struct = StructManager.get_struct(tmp_arke, conn.query_params)
     ResponseManager.send_resp(conn, 200, %{content: struct})

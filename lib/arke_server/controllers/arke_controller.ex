@@ -240,6 +240,48 @@ defmodule ArkeServer.ArkeController do
   end
 
   @doc """
+       Call Arke function
+       """ && false
+  def call_arke_function(conn, %{"arke_id" => arke_id, "function_name" => function_name}) do
+    project = conn.assigns[:arke_project]
+
+    case get_permission(conn, arke_id, :get)  do
+      {:ok, permission} ->
+        arke = ArkeManager.get(arke_id, project)|> Arke.Core.Unit.update(runtime_data: %{conn: conn})
+        case ArkeManager.call_func(arke, String.to_atom(function_name), [arke]) do
+          {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
+          res -> ResponseManager.send_resp(conn, 200, %{content: res})
+        end
+      {:error, :not_authorized} -> ResponseManager.send_resp(conn, 403, %{})
+    end
+  end
+
+  @doc """
+       Call Unit function
+       """ && false
+  def call_unit_function(conn, %{"arke_id" => arke_id, "unit_id" => unit_id, "function_name" => function_name}) do
+    project = conn.assigns[:arke_project]
+
+    case get_permission(conn, arke_id, :get)  do
+      {:ok, permission} ->
+        arke = ArkeManager.get(arke_id, project)|> Arke.Core.Unit.update(runtime_data: %{conn: conn})
+        unit = QueryManager.query(project: project, arke: arke)
+          |> QueryManager.where(id: unit_id)
+          |> QueryFilters.apply_query_filters(permission.filter)
+          |> QueryManager.one()
+        case unit do
+          %Arke.Core.Unit{}=unit ->
+            case ArkeManager.call_func(arke, String.to_atom(function_name), [arke, unit]) do
+              {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
+              res -> ResponseManager.send_resp(conn, 200, %{content: res})
+            end
+          nil -> ResponseManager.send_resp(conn, 404, %{})
+        end
+      {:error, :not_authorized} -> ResponseManager.send_resp(conn, 403, %{})
+    end
+  end
+
+  @doc """
        Get Arke groups
        """ && false
   def get_groups(conn, %{"arke_id" => id}) do
@@ -266,7 +308,6 @@ defmodule ArkeServer.ArkeController do
     member = ArkeAuth.Guardian.Plug.current_resource(conn)
     project = conn.assigns[:arke_project]
     arke = ArkeManager.get(arke_id, project)
-
     case ArkeAuth.Core.Member.get_permission(member, arke)  do
       {:ok, permission} ->
         case Map.get(permission, action, false) do
