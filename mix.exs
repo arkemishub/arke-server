@@ -1,7 +1,7 @@
 defmodule ArkeServer.MixProject do
   use Mix.Project
 
-  @version "0.1.16"
+  @version "0.1.17"
   @scm_url "https://github.com/arkemishub/arke-server"
   @site_url "https://arkehub.com"
 
@@ -63,7 +63,7 @@ defmodule ArkeServer.MixProject do
       {:arke_postgres, "~> 0.2.4"},
       {:arke_auth, "~> 0.1.5"},
       {:hackney, "~> 1.18"},
-      {:swoosh, "~> 1.11"},
+      {:swoosh, "~> 1.11"}
     ])
   end
 

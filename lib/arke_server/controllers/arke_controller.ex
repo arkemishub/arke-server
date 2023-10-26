@@ -162,9 +162,16 @@ defmodule ArkeServer.ArkeController do
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+    load_files = Map.get(conn.query_params, "load_files", "false") == "true"
 
     ResponseManager.send_resp(conn, 200, %{
-      content: StructManager.encode(conn.assigns[:unit], load_links: load_links, load_values: load_values, type: :json)
+      content:
+        StructManager.encode(conn.assigns[:unit],
+          load_links: load_links,
+          load_values: load_values,
+          load_files: load_files,
+          type: :json
+        )
     })
   end
 
@@ -180,11 +187,19 @@ defmodule ArkeServer.ArkeController do
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+    load_files = Map.get(conn.query_params, "load_files", "false") == "true"
+
     QueryManager.create(project, arke, data_as_klist(params))
     |> case do
       {:ok, unit} ->
         ResponseManager.send_resp(conn, 200, %{
-          content: StructManager.encode(unit, load_links: load_links, load_values: load_values, type: :json)
+          content:
+            StructManager.encode(unit,
+              load_links: load_links,
+              load_values: load_values,
+              load_files: load_files,
+              type: :json
+            )
         })
 
       {:error, error} ->
@@ -212,16 +227,16 @@ defmodule ArkeServer.ArkeController do
   def get_all_unit(conn, %{"arke_id" => id}) do
     project = conn.assigns[:arke_project]
 
-    case get_permission(conn, id, :get)  do
+    case get_permission(conn, id, :get) do
       {:ok, permission} ->
-
         offset = Map.get(conn.query_params, "offset", nil)
         limit = Map.get(conn.query_params, "limit", nil)
         order = Map.get(conn.query_params, "order", [])
 
-    # TODO handle query parameter with plugs
-    load_links = Map.get(conn.query_params, "load_links", "false") == "true"
-    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+        # TODO handle query parameter with plugs
+        load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+        load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+        load_files = Map.get(conn.query_params, "load_files", "false") == "true"
 
         {count, units} =
           QueryManager.query(project: project, arke: id)
@@ -232,10 +247,17 @@ defmodule ArkeServer.ArkeController do
 
         ResponseManager.send_resp(conn, 200, %{
           count: count,
-          items: StructManager.encode(units, load_links: load_links, load_values: load_values, type: :json)
+          items:
+            StructManager.encode(units,
+              load_links: load_links,
+              load_values: load_values,
+              load_files: load_files,
+              type: :json
+            )
         })
 
-      {:error, :not_authorized} -> ResponseManager.send_resp(conn, 403, %{})
+      {:error, :not_authorized} ->
+        ResponseManager.send_resp(conn, 403, %{})
     end
   end
 
@@ -245,39 +267,55 @@ defmodule ArkeServer.ArkeController do
   def call_arke_function(conn, %{"arke_id" => arke_id, "function_name" => function_name}) do
     project = conn.assigns[:arke_project]
 
-    case get_permission(conn, arke_id, :get)  do
+    case get_permission(conn, arke_id, :get) do
       {:ok, permission} ->
-        arke = ArkeManager.get(arke_id, project)|> Arke.Core.Unit.update(runtime_data: %{conn: conn})
+        arke =
+          ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
+
         case ArkeManager.call_func(arke, String.to_atom(function_name), [arke]) do
           {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
           res -> ResponseManager.send_resp(conn, 200, %{content: res})
         end
-      {:error, :not_authorized} -> ResponseManager.send_resp(conn, 403, %{})
+
+      {:error, :not_authorized} ->
+        ResponseManager.send_resp(conn, 403, %{})
     end
   end
 
   @doc """
        Call Unit function
        """ && false
-  def call_unit_function(conn, %{"arke_id" => arke_id, "unit_id" => unit_id, "function_name" => function_name}) do
+  def call_unit_function(conn, %{
+        "arke_id" => arke_id,
+        "unit_id" => unit_id,
+        "function_name" => function_name
+      }) do
     project = conn.assigns[:arke_project]
 
-    case get_permission(conn, arke_id, :get)  do
+    case get_permission(conn, arke_id, :get) do
       {:ok, permission} ->
-        arke = ArkeManager.get(arke_id, project)|> Arke.Core.Unit.update(runtime_data: %{conn: conn})
-        unit = QueryManager.query(project: project, arke: arke)
+        arke =
+          ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
+
+        unit =
+          QueryManager.query(project: project, arke: arke)
           |> QueryManager.where(id: unit_id)
           |> QueryFilters.apply_query_filters(permission.filter)
           |> QueryManager.one()
+
         case unit do
-          %Arke.Core.Unit{}=unit ->
+          %Arke.Core.Unit{} = unit ->
             case ArkeManager.call_func(arke, String.to_atom(function_name), [arke, unit]) do
               {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
               res -> ResponseManager.send_resp(conn, 200, %{content: res})
             end
-          nil -> ResponseManager.send_resp(conn, 404, %{})
+
+          nil ->
+            ResponseManager.send_resp(conn, 404, %{})
         end
-      {:error, :not_authorized} -> ResponseManager.send_resp(conn, 403, %{})
+
+      {:error, :not_authorized} ->
+        ResponseManager.send_resp(conn, 403, %{})
     end
   end
 
@@ -308,25 +346,31 @@ defmodule ArkeServer.ArkeController do
     member = ArkeAuth.Guardian.Plug.current_resource(conn)
     project = conn.assigns[:arke_project]
     arke = ArkeManager.get(arke_id, project)
-    case ArkeAuth.Core.Member.get_permission(member, arke)  do
+
+    case ArkeAuth.Core.Member.get_permission(member, arke) do
       {:ok, permission} ->
         case Map.get(permission, action, false) do
           true ->
             permission = get_permission_filter(conn, member, permission)
             {:ok, permission}
-          false -> {:error, :not_authorized}
+
+          false ->
+            {:error, :not_authorized}
         end
-      {:error, nil} -> {:error, :not_authorized}
+
+      {:error, nil} ->
+        {:error, :not_authorized}
     end
   end
 
-  defp get_permission_filter(conn, member, %{filter: nil}=permission), do: permission
+  defp get_permission_filter(conn, member, %{filter: nil} = permission), do: permission
+
   defp get_permission_filter(conn, member, permission) do
     filter = String.replace(permission.filter, "{{arke_member}}", Atom.to_string(member.id))
+
     case QueryFilters.get_from_string(conn, filter) do
       {:ok, data} -> Map.put(permission, :filter, data)
-      {:error, _msg} ->  Map.put(permission, :filter, nil)
+      {:error, _msg} -> Map.put(permission, :filter, nil)
     end
   end
-
 end
