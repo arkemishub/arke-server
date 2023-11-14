@@ -19,7 +19,7 @@ defmodule ArkeServer.Router do
   use ArkeServer, :router
 
   pipeline :api do
-    plug(:accepts, ["json"])
+    plug(:accepts, ["json", "multipart"])
     plug(ArkeServer.Plugs.NotAuthPipeline)
   end
 
@@ -41,7 +41,7 @@ defmodule ArkeServer.Router do
   end
 
   pipeline :auth_api do
-    plug(:accepts, ["json"])
+    plug(:accepts, ["json", "multipart"])
     plug(ArkeServer.Plugs.AuthPipeline)
   end
 
@@ -72,8 +72,13 @@ defmodule ArkeServer.Router do
     pipe_through([:openapi])
 
     scope "/auth" do
+
+      pipe_through([:project])
+
       post("/signin", AuthController, :signin)
       post("/signup", AuthController, :signup)
+      post("/recover_password", AuthController, :recover_password)
+      post("/reset_password/:token", AuthController, :reset_password)
 
       scope "/signin/:provider" do
         pipe_through(:oauth)
@@ -145,6 +150,11 @@ defmodule ArkeServer.Router do
     )
 
     delete("/:arke_id/unit/:unit_id", ArkeController, :delete)
+
+    # -------- CALL FUNCTION --------
+
+    get("/:arke_id/function/:function_name", ArkeController, :call_arke_function)
+    get("/:arke_id/unit/:unit_id/function/:function_name", ArkeController, :call_unit_function)
 
     # -------- PARAMETER --------
     get("/parameter/:parameter_id", ParameterController, :get_parameter_value)

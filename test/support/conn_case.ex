@@ -24,7 +24,7 @@ defmodule ArkeServer.ConnCase do
       @endpoint ArkeServer.Endpoint
       alias ArkeAuth.Guardian
       alias ArkePostgres.Repo
-      alias Arke.Boundary.{ArkeManager, ParameterManager, ParamsManager, GroupManager}
+      alias Arke.Boundary.{ArkeManager, ParameterManager, GroupManager}
       alias Arke.QueryManager
 
       # Import conveniences for testing with connections

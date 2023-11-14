@@ -1,6 +1,6 @@
 defmodule ArkeServer.ArkeControllerTest do
   use ArkeServer.ConnCase
-  alias Arke.UnitManager
+  alias Arke.Boundary.UnitManager
   alias Arke.LinkManager
 
   defp check_arke(_context) do

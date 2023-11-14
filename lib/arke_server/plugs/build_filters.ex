@@ -16,32 +16,13 @@ defmodule ArkeServer.Plugs.BuildFilters do
   import Plug.Conn
   alias Arke.QueryManager
   alias Arke.Validator
+  alias ArkeServer.Utils.QueryFilters
   alias Arke.Utils.ErrorGenerator, as: Error
 
   def init(default), do: default
 
-  def call(
-        %Plug.Conn{method: "GET", query_params: %{"filter" => "and" <> condition}} = conn,
-        _default
-      ) do
-    case get_conditions(conn, remove_wrap_parentheses(condition), :and) do
-      {:ok, data} -> assign(conn, :filter, data)
-      {:error, msg} -> stop_conn(conn, msg)
-    end
-  end
-
-  def call(
-        %Plug.Conn{method: "GET", query_params: %{"filter" => "or" <> condition}} = conn,
-        _default
-      ) do
-    case get_conditions(conn, remove_wrap_parentheses(condition), :or) do
-      {:ok, data} -> assign(conn, :filter, data)
-      {:error, msg} -> stop_conn(conn, msg)
-    end
-  end
-
-  def call(%Plug.Conn{method: "GET", query_params: %{"filter" => filter}} = conn, _default) do
-    case get_conditions(conn, filter) do
+  def call(%Plug.Conn{method: "GET", query_params: %{"filter" => condition}} = conn, _default) do
+    case QueryFilters.get_from_string(conn, condition) do
       {:ok, data} -> assign(conn, :filter, data)
       {:error, msg} -> stop_conn(conn, msg)
     end
