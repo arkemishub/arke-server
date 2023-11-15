@@ -21,6 +21,7 @@ defmodule ArkeServer.AuthController do
   alias ArkeServer.ResponseManager
   alias ArkeAuth.Core.{User, Auth}
   alias Arke.Boundary.ArkeManager
+  alias ArkeAuth.Boundary.OtpManager
   alias Arke.{QueryManager, LinkManager}
   alias Arke.Utils.ErrorGenerator, as: Error
   alias Arke.DatetimeHandler
@@ -28,7 +29,6 @@ defmodule ArkeServer.AuthController do
   alias ArkeServer.Openapi.Responses
 
   alias OpenApiSpex.{Operation, Reference}
-
 
   # ------- start OPENAPI spec -------
   def open_api_operation(action) do
@@ -154,9 +154,120 @@ defmodule ArkeServer.AuthController do
   @doc """
   Signin a user
   """
-  def signin(conn, %{"username" => username, "password" => password}) do
+  def signin(conn, %{"username" => username, "password" => password} = params) do
     project = get_project(conn.assigns[:arke_project])
+    auth_mode = System.get_env("AUTH_MODE", "defualt")
 
+    Auth.validate_credentials(username, password, project)
+    |> case do
+      {:ok, member, access_token, refresh_token} ->
+        case member.arke_id do
+          :super_admin ->
+            handle_signin(conn, username, password, project)
+
+          _ ->
+            handle_signin_mode(conn, params, project, auth_mode)
+        end
+    end
+  end
+
+  defp handle_signin_mode(
+         conn,
+         %{"username" => username, "password" => password},
+         project,
+         "default"
+       ),
+       do: handle_signin(conn, username, password, project)
+
+  defp handle_signin_mode(conn, _, project, "default"),
+    do: ResponseManager.send_resp(conn, 400, "Username and Password required")
+
+  defp handle_signin_mode(
+         conn,
+         %{"username" => username, "password" => password, "otp" => otp},
+         project,
+         "otp_mail"
+       )
+       when is_nil(otp) do
+    Auth.validate_credentials(username, password, project)
+    |> case do
+      {:ok, member, access_token, refresh_token} ->
+        otp_arke = ArkeManager.get(:otp, :arke_system)
+
+        OtpManager.get(member.id, project)
+        |> case do
+          nil -> :ok
+          otp -> OtpManager.remove(otp)
+        end
+
+        otp =
+          Arke.Core.Unit.new(
+            member.id,
+            %{
+              code: "1234",
+              action: "signin",
+              expiry_datetime: NaiveDateTime.utc_now() |> NaiveDateTime.add(300, :second)
+            },
+            otp_arke.id,
+            nil,
+            %{},
+            DateTime.utc_now(),
+            DateTime.utc_now(),
+            ArkeAuth.Core.Otp,
+            %{}
+          )
+
+        OtpManager.create(otp, project)
+        ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
+
+      {:error, error} ->
+        ResponseManager.send_resp(conn, 401, nil, error)
+    end
+  end
+
+  defp handle_signin_mode(
+         conn,
+         %{"username" => username, "password" => password, "otp" => otp},
+         project,
+         "otp_mail"
+       ) do
+    Auth.validate_credentials(username, password, project)
+    |> case do
+      {:ok, member, access_token, refresh_token} ->
+        OtpManager.get(member.id, project)
+        |> case do
+          nil ->
+            ResponseManager.send_resp(conn, 401, nil, "Unauthorized")
+
+          otp_unit ->
+            case otp_unit.data.code == otp do
+              true ->
+                case NaiveDateTime.compare(otp_unit.data.expiry_datetime, NaiveDateTime.utc_now()) do
+                  :lt ->
+                    ResponseManager.send_resp(conn, 410, nil, "Gone")
+
+                  :gt ->
+                    OtpManager.remove(otp_unit)
+                    handle_signin(conn, username, password, project)
+                end
+
+              false ->
+                ResponseManager.send_resp(conn, 401, nil, nil)
+            end
+        end
+
+      {:error, error} ->
+        ResponseManager.send_resp(conn, 401, nil, error)
+    end
+  end
+
+  defp handle_signin_mode(conn, _, project, "otp_mail"),
+    do: ResponseManager.send_resp(conn, 400, "Username, Password and OTP required")
+
+  defp handle_signin_mode(conn, _, project, _),
+    do: ResponseManager.send_resp(conn, 400, "Auth method not active")
+
+  defp handle_signin(conn, username, password, project) do
     Auth.validate_credentials(username, password, project)
     |> case do
       {:ok, member, access_token, refresh_token} ->
@@ -172,8 +283,6 @@ defmodule ArkeServer.AuthController do
         ResponseManager.send_resp(conn, 401, nil, error)
     end
   end
-
-  def signin(conn, _params), do: ResponseManager.send_resp(conn, 404, nil)
 
   @doc """
   Refresh the JWT tokens. Returns 200 and the tokes if ok
@@ -226,7 +335,6 @@ defmodule ArkeServer.AuthController do
   Reset user password
   """
   def recover_password(conn, %{"email" => email} = _params) do
-
     case QueryManager.get_by(email: email, project: :arke_system) do
       nil ->
         {:error, msg} = Error.create(:auth, "no user found with the given email")
