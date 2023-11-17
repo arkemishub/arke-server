@@ -27,10 +27,14 @@ defmodule ArkeServer.Utils.QueryFilters do
   defp apply_filter(query, :and, negate, filters), do: QueryManager.and_(query, negate, filters)
   defp apply_filter(query, :or, negate, filters), do: QueryManager.or_(query, negate, filters)
 
-
   def get_from_string(conn, nil), do: {:ok, nil}
-  def get_from_string(conn, "and" <> condition), do: get_conditions(conn, remove_wrap_parentheses(condition), :and)
-  def get_from_string(conn, "or" <> condition), do: get_conditions(conn, remove_wrap_parentheses(condition), :or)
+
+  def get_from_string(conn, "and" <> condition),
+    do: get_conditions(conn, remove_wrap_parentheses(condition), :and)
+
+  def get_from_string(conn, "or" <> condition),
+    do: get_conditions(conn, remove_wrap_parentheses(condition), :or)
+
   def get_from_string(conn, condition), do: get_conditions(conn, condition)
 
   defp remove_wrap_parentheses(str) do
@@ -98,7 +102,8 @@ defmodule ArkeServer.Utils.QueryFilters do
 
   defp format_parameter_and_value(conn, data, operator, negate \\ false)
 
-  defp format_parameter_and_value(conn, data, :isnull, _negate) do
+  defp format_parameter_and_value(conn, data, :isnull, negate) do
+    IO.inspect({data, negate})
     get_condition(conn, data, :isnull, nil, false)
   end
 

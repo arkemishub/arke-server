@@ -168,6 +168,9 @@ defmodule ArkeServer.AuthController do
           _ ->
             handle_signin_mode(conn, params, project, auth_mode)
         end
+
+      {:error, messages} ->
+        ResponseManager.send_resp(conn, 401, messages)
     end
   end
 
@@ -314,8 +317,107 @@ defmodule ArkeServer.AuthController do
   @doc """
   Change user password
   """
+
   def change_password(conn, %{"old_password" => old_pwd, "password" => new_pwd} = params) do
-    user = ArkeAuth.Guardian.Plug.current_resource(conn)
+    project = get_project(conn.assigns[:arke_project])
+    auth_mode = System.get_env("AUTH_MODE", "defualt")
+    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+
+    case member.arke_id do
+      :super_admin ->
+        handle_change_password(conn, member, old_pwd, new_pwd)
+
+      _ ->
+        handle_change_password_mode(conn, params, member, "default")
+    end
+  end
+
+  defp handle_change_password_mode(
+         conn,
+         %{"old_password" => old_pwd, "password" => new_pwd},
+         member,
+         "default"
+       ),
+       do: handle_change_password(conn, member, old_pwd, new_pwd)
+
+  defp handle_change_password_mode(conn, _, _, "default"),
+    do: ResponseManager.send_resp(conn, 400, "Old password and New password required")
+
+  defp handle_change_password_mode(
+         conn,
+         %{"old_password" => old_pwd, "password" => new_pwd, "otp" => otp},
+         %{metadata: %{project: project}} = member,
+         "otp_mail"
+       )
+       when is_nil(otp) do
+    otp_arke = ArkeManager.get(:otp, :arke_system)
+
+    OtpManager.get(member.id, project)
+    |> case do
+      nil -> :ok
+      otp -> OtpManager.remove(otp)
+    end
+
+    otp =
+      Arke.Core.Unit.new(
+        member.id,
+        %{
+          code: "1234",
+          action: "change_password",
+          expiry_datetime: NaiveDateTime.utc_now() |> NaiveDateTime.add(300, :second)
+        },
+        otp_arke.id,
+        nil,
+        %{},
+        DateTime.utc_now(),
+        DateTime.utc_now(),
+        ArkeAuth.Core.Otp,
+        %{}
+      )
+
+    OtpManager.create(otp, project)
+    ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
+  end
+
+  defp handle_change_password_mode(
+         conn,
+         %{"old_password" => old_pwd, "password" => new_pwd, "otp" => otp},
+         %{metadata: %{project: project}} = member,
+         "otp_mail"
+       ) do
+    OtpManager.get(member.id, project)
+    |> case do
+      nil ->
+        ResponseManager.send_resp(conn, 401, nil, "Unauthorized")
+
+      otp_unit ->
+        case otp_unit.data.code == otp do
+          true ->
+            case NaiveDateTime.compare(otp_unit.data.expiry_datetime, NaiveDateTime.utc_now()) do
+              :lt ->
+                ResponseManager.send_resp(conn, 410, nil, "Gone")
+
+              :gt ->
+                OtpManager.remove(otp_unit)
+                handle_change_password(conn, member, old_pwd, new_pwd)
+            end
+
+          false ->
+            ResponseManager.send_resp(conn, 401, nil, nil)
+        end
+    end
+  end
+
+  defp handle_change_password_mode(conn, _, _, "otp_mail"),
+    do:
+      ResponseManager.send_resp(conn, 400, "Old password, New password required and OTP required")
+
+  defp handle_change_password_mode(conn, _, _, _),
+    do: ResponseManager.send_resp(conn, 400, "Auth method not active")
+
+  defp handle_change_password(conn, member, old_pwd, new_pwd) do
+    user =
+      QueryManager.get_by(project: :arke_system, arke_id: :user, id: member.data.arke_system_user)
 
     Auth.change_password(user, old_pwd, new_pwd)
     |> case do
@@ -334,7 +436,77 @@ defmodule ArkeServer.AuthController do
   @doc """
   Reset user password
   """
-  def recover_password(conn, %{"email" => email} = _params) do
+
+  def recover_password(conn, %{"email" => email} = params) do
+    project = get_project(conn.assigns[:arke_project])
+    auth_mode = System.get_env("AUTH_MODE", "defualt")
+
+    member = QueryManager.get_by(project: project, group_id: :arke_auth_member, email: email)
+
+    case member.arke_id do
+      :super_admin ->
+        handle_recover_password(conn, member, params)
+
+      _ ->
+        handle_recover_password_mode(conn, params, member, auth_mode)
+    end
+  end
+
+  defp handle_recover_password_mode(
+         conn,
+         %{"email" => email},
+         member,
+         "default"
+       ),
+       do: handle_recover_password_mode(conn, member, email, "default")
+
+  defp handle_recover_password_mode(conn, _, _, "default"),
+    do: ResponseManager.send_resp(conn, 400, "Email required")
+
+  defp handle_recover_password_mode(
+         conn,
+         %{"email" => email, "otp" => otp},
+         %{metadata: %{project: project}} = member,
+         "otp_mail"
+       )
+       when is_nil(otp) do
+    otp_arke = ArkeManager.get(:otp, :arke_system)
+    IO.inspect(member)
+
+    OtpManager.get(member.id, project)
+    |> case do
+      nil -> :ok
+      otp -> OtpManager.remove(otp)
+    end
+
+    otp =
+      Arke.Core.Unit.new(
+        member.id,
+        %{
+          code: "1234",
+          action: "reset_password",
+          expiry_datetime: NaiveDateTime.utc_now() |> NaiveDateTime.add(300, :second)
+        },
+        otp_arke.id,
+        nil,
+        %{},
+        DateTime.utc_now(),
+        DateTime.utc_now(),
+        ArkeAuth.Core.Otp,
+        %{}
+      )
+
+    OtpManager.create(otp, project)
+    ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
+  end
+
+  defp handle_recover_password_mode(conn, _, _, "otp_mail"),
+    do: ResponseManager.send_resp(conn, 400, "Email required and OTP required")
+
+  defp handle_recover_password_mode(conn, _, _, _),
+    do: ResponseManager.send_resp(conn, 400, "Auth method not active")
+
+  defp handle_recover_password(conn, email, "default") do
     case QueryManager.get_by(email: email, project: :arke_system) do
       nil ->
         {:error, msg} = Error.create(:auth, "no user found with the given email")
@@ -379,7 +551,33 @@ defmodule ArkeServer.AuthController do
 
   def recover_password(conn, _), do: ResponseManager.send_resp(conn, 400, nil)
 
-  def reset_password(conn, %{"new_password" => new_password, "token" => token} = params) do
+  def reset_password(conn, params) do
+    project = get_project(conn.assigns[:arke_project])
+    auth_mode = System.get_env("AUTH_MODE", "defualt")
+
+    email = Map.get(params, "email", nil)
+
+    case QueryManager.get_by(project: project, group_id: :arke_auth_member, email: email) do
+      nil ->
+        handle_reset_password_mode(conn, params, nil, auth_mode)
+
+      member ->
+        case member.arke_id do
+          :super_admin ->
+            handle_reset_password_mode(conn, params, member, auth_mode)
+
+          _ ->
+            handle_reset_password_mode(conn, params, member, auth_mode)
+        end
+    end
+  end
+
+  defp handle_reset_password_mode(
+         conn,
+         %{"new_password" => new_password, "token" => token} = params,
+         member,
+         "default"
+       ) do
     with %Arke.Core.Unit{} = token_unit <-
            QueryManager.get_by(
              arke_id: :reset_password_token,
@@ -401,6 +599,44 @@ defmodule ArkeServer.AuthController do
 
       {:error, msg} ->
         ResponseManager.send_resp(conn, 400, nil, msg)
+    end
+  end
+
+  defp handle_reset_password_mode(
+         conn,
+         %{"new_password" => new_password, "otp" => otp},
+         %{metadata: %{project: project}} = member,
+         "otp_mail"
+       ) do
+    OtpManager.get(member.id, project)
+    |> case do
+      nil ->
+        ResponseManager.send_resp(conn, 401, nil, "Unauthorized")
+
+      otp_unit ->
+        case otp_unit.data.code == otp do
+          true ->
+            case NaiveDateTime.compare(otp_unit.data.expiry_datetime, NaiveDateTime.utc_now()) do
+              :lt ->
+                ResponseManager.send_resp(conn, 410, nil, "Gone")
+
+              :gt ->
+                OtpManager.remove(otp_unit)
+
+                user =
+                  QueryManager.get_by(
+                    id: member.data.arke_system_user,
+                    arke_id: :user,
+                    project: :arke_system
+                  )
+
+                User.update_password(user, new_password)
+                ResponseManager.send_resp(conn, 200, nil, nil)
+            end
+
+          false ->
+            ResponseManager.send_resp(conn, 401, nil, nil)
+        end
     end
   end
 

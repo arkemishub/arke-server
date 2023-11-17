@@ -55,12 +55,12 @@ defmodule ArkeServer.Router do
     pipe_through([:openapi])
 
     scope "/auth" do
-
       pipe_through([:project])
 
       post("/signin", AuthController, :signin)
       post("/:arke_id/signup", AuthController, :signup)
       post("/recover_password", AuthController, :recover_password)
+      post("/reset_password", AuthController, :reset_password)
       post("/reset_password/:token", AuthController, :reset_password)
 
       pipe_through(:api)
