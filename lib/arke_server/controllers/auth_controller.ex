@@ -471,7 +471,6 @@ defmodule ArkeServer.AuthController do
        )
        when is_nil(otp) do
     otp_arke = ArkeManager.get(:otp, :arke_system)
-    IO.inspect(member)
 
     OtpManager.get(member.id, project)
     |> case do

@@ -85,7 +85,7 @@ defmodule ArkeServer.Utils.QueryFilters do
             true ->
               if is_filter,
                 do: [format_parameter_and_value(conn, Enum.at(matches, i), op, negate) | acc],
-                else: [conn, format_parameter_and_value(Enum.at(matches, i), op, negate) | acc]
+                else: [format_parameter_and_value(conn, Enum.at(matches, i), op, negate) | acc]
           end
         end)
 
@@ -95,7 +95,12 @@ defmodule ArkeServer.Utils.QueryFilters do
         {:error, error_filters |> Enum.map(fn {k, v} -> v end)}
       else
         filters = Enum.filter(filters, fn {k, v} -> k == :ok end) |> Enum.map(fn {k, v} -> v end)
-        {:ok, {logical_op, negate, filters}}
+
+        if negate == true do
+          {:ok, List.first(filters)}
+        else
+          {:ok, {logical_op, negate, filters}}
+        end
       end
     end
   end
@@ -103,8 +108,7 @@ defmodule ArkeServer.Utils.QueryFilters do
   defp format_parameter_and_value(conn, data, operator, negate \\ false)
 
   defp format_parameter_and_value(conn, data, :isnull, negate) do
-    IO.inspect({data, negate})
-    get_condition(conn, data, :isnull, nil, false)
+    get_condition(conn, data, :isnull, nil, negate)
   end
 
   defp format_parameter_and_value(conn, data, operator, negate) do
