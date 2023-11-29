@@ -95,6 +95,22 @@ defmodule ArkeServer.TopologyController do
     }
   end
 
+  def update_parameter_operation() do
+    %Operation{
+      tags: ["Parameter"],
+      summary: "Update associated parameter",
+      description: "Updates associated parameter of the given Arke",
+      operationId: "ArkeServer.TopologyController.update_parameter",
+      parameters: [
+        %Reference{"$ref": "#/components/parameters/arke_id"},
+        %Reference{"$ref": "#/components/parameters/arke_parameter_id"},
+        %Reference{"$ref": "#/components/parameters/arke-project-key"}
+      ],
+      security: [%{"authorization" => []}],
+      responses: Responses.get_responses([200])
+    }
+  end
+
   # ------- end OPENAPI spec -------
 
   @doc """
@@ -126,7 +142,8 @@ defmodule ArkeServer.TopologyController do
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,
-      items: StructManager.encode(units, load_links: load_links, load_values: load_values, type: :json)
+      items:
+        StructManager.encode(units, load_links: load_links, load_values: load_values, type: :json)
     })
   end
 
@@ -213,7 +230,50 @@ defmodule ArkeServer.TopologyController do
     |> case do
       {:ok, unit} ->
         ResponseManager.send_resp(conn, 201, %{
-          content: StructManager.encode(unit, load_links: load_links, load_values: load_values, type: :json)
+          content:
+            StructManager.encode(unit,
+              load_links: load_links,
+              load_values: load_values,
+              type: :json
+            )
+        })
+
+      {:error, error} ->
+        ResponseManager.send_resp(conn, 400, nil, error)
+    end
+  end
+
+  @doc """
+       Update an associated parameter of an Arke
+       """ && false
+  def update_parameter(%Plug.Conn{body_params: params} = conn, %{
+        "arke_parameter_id" => parameter_id,
+        "arke_id" => arke_id
+      }) do
+    project = conn.assigns[:arke_project]
+
+    # TODO handle query parameter with plugs
+    load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+
+    {metadata, _} = Map.pop(params, "metadata", nil)
+
+    LinkManager.update_node(
+      project,
+      arke_id,
+      parameter_id,
+      "parameter",
+      metadata
+    )
+    |> case do
+      {:ok, unit} ->
+        ResponseManager.send_resp(conn, 200, %{
+          content:
+            StructManager.encode(unit,
+              load_links: load_links,
+              load_values: load_values,
+              type: :json
+            )
         })
 
       {:error, error} ->
