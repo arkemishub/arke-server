@@ -273,6 +273,7 @@ defmodule ArkeServer.ArkeController do
           ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
 
         case ArkeManager.call_func(arke, String.to_atom(function_name), [arke]) do
+          {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
           {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
           res -> ResponseManager.send_resp(conn, 200, %{content: res})
         end
@@ -306,6 +307,7 @@ defmodule ArkeServer.ArkeController do
         case unit do
           %Arke.Core.Unit{} = unit ->
             case ArkeManager.call_func(arke, String.to_atom(function_name), [arke, unit]) do
+              {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
               {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
               res -> ResponseManager.send_resp(conn, 200, %{content: res})
             end
