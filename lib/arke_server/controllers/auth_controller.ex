@@ -157,7 +157,6 @@ defmodule ArkeServer.AuthController do
   def signin(conn, %{"username" => username, "password" => password} = params) do
     project = get_project(conn.assigns[:arke_project])
     auth_mode = System.get_env("AUTH_MODE", "defualt")
-
     Auth.validate_credentials(username, password, project)
     |> case do
       {:ok, member, access_token, refresh_token} ->

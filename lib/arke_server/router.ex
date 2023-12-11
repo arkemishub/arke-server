@@ -130,6 +130,9 @@ defmodule ArkeServer.Router do
     get("/:arke_id/function/:function_name", ArkeController, :call_arke_function)
     get("/:arke_id/unit/:unit_id/function/:function_name", ArkeController, :call_unit_function)
 
+    post("/:arke_id/function/:function_name", ArkeController, :call_arke_function)
+    post("/:arke_id/unit/:unit_id/function/:function_name", ArkeController, :call_unit_function)
+
     # -------- PARAMETER --------
     get("/parameter/:parameter_id", ParameterController, :get_parameter_value)
     post("/parameter/:parameter_id", ParameterController, :add_link_parameter_value)
