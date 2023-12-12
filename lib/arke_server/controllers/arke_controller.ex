@@ -275,9 +275,8 @@ defmodule ArkeServer.ArkeController do
         case ArkeManager.call_func(arke, String.to_atom(function_name), [arke]) do
           {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
           {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
-          {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
           {:ok, content, status} -> ResponseManager.send_resp(conn, status, %{content: content})
-          {:ok, content, status, messages} -> ResponseManager.send_resp(conn, status, %{content: content, messages: messages})
+          {:ok, content, status, messages} -> ResponseManager.send_resp(conn, status, %{content: content}, messages)
           res -> ResponseManager.send_resp(conn, 200, %{content: res})
         end
 
