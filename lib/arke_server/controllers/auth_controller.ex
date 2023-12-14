@@ -133,23 +133,165 @@ defmodule ArkeServer.AuthController do
   end
 
   @doc """
-  Register a new user
+  Signin a user
   """
-  def signup(conn, %{"username" => _, "password" => _} = params) do
+  def signup(%{body_params: params} = conn, %{"arke_id" => arke_id}) do
     project = get_project(conn.assigns[:arke_project])
-    user_model = ArkeManager.get(:user, :arke_system)
-
-    QueryManager.create(project, user_model, data_as_klist(params))
-    |> case do
-      {:ok, user} ->
-        ResponseManager.send_resp(conn, 201, %{
-          content: Arke.StructManager.encode(user, type: :json)
-        })
-
-      {:error, error} ->
-        ResponseManager.send_resp(conn, 400, nil, error)
-    end
+    auth_mode = System.get_env("AUTH_MODE", "defualt")
+    arke = ArkeManager.get(arke_id, project)
+    IO.inspect({conn, arke, params, project, auth_mode})
+    with %Arke.Core.Unit{} = unit <- Arke.Core.Unit.load(arke, data_as_klist(params), :create),
+         {:ok, unit} <- Arke.Validator.validate(unit, :create, project),
+         do: handle_signup_mode(conn, arke, params, project, auth_mode),
+#         do: %{},
+         else: ({:error, errors} -> ResponseManager.send_resp(conn, 400, errors))
   end
+
+  defp handle_signup_mode(
+         conn,
+         arke,
+         params,
+         project,
+         "default"
+       ),
+       do: handle_signup(conn, arke, params, project)
+
+  defp handle_signup_mode(conn, _, _, project, "default"),
+       do: ResponseManager.send_resp(conn, 400, "Username and Password required")
+
+  defp handle_signup_mode(
+         conn,
+         arke,
+         %{"otp" => otp, "arke_system_user" => %{"username" => username}},
+         project,
+         "otp_mail"
+       )
+       when is_nil(otp) do
+    otp_arke = ArkeManager.get(:otp, :arke_system)
+
+    OtpManager.get(username, project)
+    |> case do
+         nil -> :ok
+         otp -> OtpManager.remove(otp)
+       end
+
+    otp =
+      Arke.Core.Unit.new(
+        username,
+        %{
+          code: "1234",
+          action: "signup",
+          expiry_datetime: NaiveDateTime.utc_now() |> NaiveDateTime.add(300, :second)
+        },
+        otp_arke.id,
+        nil,
+        %{},
+        DateTime.utc_now(),
+        DateTime.utc_now(),
+        ArkeAuth.Core.Otp,
+        %{}
+      )
+
+    OtpManager.create(otp, project)
+    ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
+  end
+
+  defp handle_signup_mode(
+         conn,
+         arke,
+         %{"otp" => otp, "arke_system_user" => %{"username" => username}}=params,
+         project,
+         "otp_mail"
+       ) do
+
+    OtpManager.get(username, project)
+    |> case do
+         nil ->
+           ResponseManager.send_resp(conn, 401, nil, "Unauthorized")
+
+         otp_unit ->
+           case otp_unit.data.code == otp do
+             true ->
+               case NaiveDateTime.compare(otp_unit.data.expiry_datetime, NaiveDateTime.utc_now()) do
+                 :lt ->
+                   ResponseManager.send_resp(conn, 410, nil, "Gone")
+
+                 :gt ->
+                   OtpManager.remove(otp_unit)
+                   handle_signup(conn, arke, params, project)
+               end
+
+             false ->
+               ResponseManager.send_resp(conn, 401, nil, nil)
+           end
+       end
+
+  end
+
+  defp handle_signup_mode(conn, _, _, project, "otp_mail"),
+       do: ResponseManager.send_resp(conn, 400, "Username, Password and OTP required")
+
+  defp handle_signup_mode(conn, _, _, project, _),
+       do: ResponseManager.send_resp(conn, 400, "Signup method not active")
+
+  defp handle_signup(conn, arke, %{"arke_system_user" => %{"username" => username, "password" => password}}=params, project) do
+    {_, params} = Map.pop(params, "otp")
+
+    QueryManager.create(project, arke, data_as_klist(params))
+      |> case do
+        {:ok, member} ->
+          Auth.validate_credentials(username, password, project)
+          |> case do
+               {:ok, member, access_token, refresh_token} ->
+                 content =
+                   Map.merge(Arke.StructManager.encode(member, type: :json), %{
+                     access_token: access_token,
+                     refresh_token: refresh_token
+                   })
+
+                 ResponseManager.send_resp(conn, 200, %{content: content})
+
+               {:error, error} ->
+                 ResponseManager.send_resp(conn, 401, nil, error)
+             end
+        {:error, error} ->
+          ResponseManager.send_resp(conn, 400, nil, error)
+      end
+
+#    Auth.validate_credentials(username, password, project)
+#    |> case do
+#         {:ok, member, access_token, refresh_token} ->
+#           content =
+#             Map.merge(Arke.StructManager.encode(member, type: :json), %{
+#               access_token: access_token,
+#               refresh_token: refresh_token
+#             })
+#
+#           ResponseManager.send_resp(conn, 200, %{content: content})
+#
+#         {:error, error} ->
+#           ResponseManager.send_resp(conn, 401, nil, error)
+#       end
+  end
+
+#  @doc """
+#  Register a new user
+#  """
+#  def signup(conn, %{"username" => _, "password" => _} = params) do
+#    project = get_project(conn.assigns[:arke_project])
+#    user_model = ArkeManager.get(:user, :arke_system)
+#
+#    QueryManager.create(project, user_model, data_as_klist(params))
+#    |> case do
+#      {:ok, user} ->
+#        ResponseManager.send_resp(conn, 201, %{
+#          content: Arke.StructManager.encode(user, type: :json)
+#        })
+#
+#      {:error, error} ->
+#        ResponseManager.send_resp(conn, 400, nil, error)
+#    end
+#  end
 
   @doc """
   Signin a user
@@ -220,6 +362,20 @@ defmodule ArkeServer.AuthController do
           )
 
         OtpManager.create(otp, project)
+        # case ArkeServer.EmailManager.send_email(
+        #            to: member.data.email,
+        #            subject: "Login otp",
+        #            template_name: "reset_password",
+        #            text: endpoint,
+        #            custom_vars: %{"reset-endpoint": endpoint}
+        #          ) do
+        #       {:ok, _} ->
+        #         ResponseManager.send_resp(conn, 200, nil)
+
+        #       {:error, {_code, _error}} ->
+        #         {:error, msg} = Error.create(:auth, "service mail error")
+        #         ResponseManager.send_resp(conn, 400, nil, msg)
+        #     end
         ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
 
       {:error, error} ->
@@ -495,6 +651,7 @@ defmodule ArkeServer.AuthController do
       )
 
     OtpManager.create(otp, project)
+
     ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
   end
 
