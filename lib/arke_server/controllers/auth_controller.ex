@@ -139,7 +139,6 @@ defmodule ArkeServer.AuthController do
     project = get_project(conn.assigns[:arke_project])
     auth_mode = System.get_env("AUTH_MODE", "defualt")
     arke = ArkeManager.get(arke_id, project)
-    IO.inspect({conn, arke, params, project, auth_mode})
     with %Arke.Core.Unit{} = unit <- Arke.Core.Unit.load(arke, data_as_klist(params), :create),
          {:ok, unit} <- Arke.Validator.validate(unit, :create, project),
          do: handle_signup_mode(conn, arke, params, project, auth_mode),
@@ -376,7 +375,10 @@ defmodule ArkeServer.AuthController do
         #         {:error, msg} = Error.create(:auth, "service mail error")
         #         ResponseManager.send_resp(conn, 400, nil, msg)
         #     end
-        ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
+
+        # TODO implement only `opt` in `StructManager.encode`
+        data = %{arke_id: member.arke_id, id: member.id, arke_system_user: member.data.arke_system_user, email: member.data.email, inactive: Map.get(member.data, :inactive, false)}
+        ResponseManager.send_resp(conn, 200, data, "OTP send successfully")
 
       {:error, error} ->
         ResponseManager.send_resp(conn, 401, nil, error)
