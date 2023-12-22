@@ -3,7 +3,7 @@ defmodule ArkeServer.EmailManager do
 
   # dynamic
   @mailer_conf Application.get_env(:arke_server, ArkeServer.Mailer)
-  @provider_options [:template_name, :custom_vars, :tags, :recipient_vars, :sending_options]
+  @provider_options [:template_name, :custom_vars, :tags, :recipient_vars, :sending_options, :template_uuid, :template_variables]
 
   def send_email(opts) when is_list(opts) do
     case Keyword.keyword?(opts) do
@@ -24,7 +24,6 @@ defmodule ArkeServer.EmailManager do
     receiver = Map.fetch!(opts, :to)
     subject = Map.get(opts, :subject, "")
     text = Map.get(opts, :text, "")
-
     new()
     |> from(sender)
     |> to(receiver)
