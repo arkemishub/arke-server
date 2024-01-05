@@ -242,6 +242,7 @@ defmodule ArkeServer.ArkeController do
           QueryManager.query(project: project, arke: id)
           |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
           |> QueryFilters.apply_query_filters(permission.filter)
+          |> handle_coordinates_filter(conn)
           |> QueryOrder.apply_order(order)
           |> QueryManager.pagination(offset, limit)
 
@@ -259,6 +260,42 @@ defmodule ArkeServer.ArkeController do
       {:error, :not_authorized} ->
         ResponseManager.send_resp(conn, 403, %{})
     end
+  end
+
+  defp handle_coordinates_filter(query, conn) do
+
+    radius = parse_coordinate(Map.get(conn.query_params, "radius", 30))
+    latitude = parse_coordinate(Map.get(conn.query_params, "latitude", nil))
+    longitude = parse_coordinate(Map.get(conn.query_params, "longitude", nil))
+
+    case latitude == nil or longitude == nil do
+      true -> query
+      false ->
+        {lat_nord, lat_sud, lon_est, lon_ovest} = calculate_coordinates(latitude, longitude, radius)
+        query
+        |> QueryManager.where(latitude__gte: lat_sud, latitude__lte: lat_nord)
+        |> QueryManager.where(longitude__gte: lon_est, latitude__lte: lon_ovest)
+    end
+  end
+
+  defp parse_coordinate(c) when is_binary(c), do: String.to_float(c)
+  defp parse_coordinate(c), do: c
+
+  def calculate_coordinates(latitude, longitude, radius) do
+
+    latitude_to_km = 110.574
+    longitude_to_km = 111.32
+    radius = radius
+
+    delta_lat = radius / latitude_to_km
+    delta_lon = radius / (longitude_to_km * :math.cos(latitude))
+
+    lat_nord = latitude + delta_lat
+    lat_sud = latitude - delta_lat
+    lon_est = longitude + delta_lon
+    lon_ovest = longitude - delta_lon
+
+    {lat_nord, lat_sud, lon_est, lon_ovest}
   end
 
   @doc """
