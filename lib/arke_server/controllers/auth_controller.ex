@@ -131,6 +131,12 @@ defmodule ArkeServer.AuthController do
   defp data_as_klist(data) do
     Enum.map(data, fn {key, value} -> {String.to_existing_atom(key), value} end)
   end
+  defp get_review_email() do
+    case System.get_env("APP_REVIEW_EMAIL") do
+      nil -> []
+      data -> String.split(data,",")
+    end
+  end
 
   @doc """
   Signin a user
@@ -318,16 +324,15 @@ defmodule ArkeServer.AuthController do
     Auth.validate_credentials(username, password, project)
     |> case do
       {:ok, member, access_token, refresh_token} ->
-
+        full_name = "#{member.data.first_name} #{member.data.last_name}"
+        email = member.data.email
+        reviewer = get_review_email()
+          if username in reviewer do
+            send_email(full_name,email,"1234")
+        else
         case Otp.generate(project, member.id, "signin") do
           {:ok, otp} ->
-            full_name = "#{member.data.first_name} #{member.data.last_name}"
-            res_mail = ArkeServer.EmailManager.send_email(
-              to: {full_name, member.data.email},
-              template_uuid: "cd331f05-6fb7-460d-9639-d6f14d4ce02f",
-              template_variables: %{name: full_name, otp: otp.data.code, expire: "5 minuti"},
-            )
-
+            send_email(full_name,email,otp.data.code)
             # TODO implement only `opt` in `StructManager.encode`
             data = %{arke_id: member.arke_id, id: member.id, arke_system_user: member.data.arke_system_user, email: member.data.email, inactive: Map.get(member.data, :inactive, false)}
             ResponseManager.send_resp(conn, 200, data, "OTP send successfully")
@@ -337,7 +342,18 @@ defmodule ArkeServer.AuthController do
       {:error, error} ->
         ResponseManager.send_resp(conn, 401, nil, error)
     end
+            end
   end
+
+  defp send_email(name,email,code) do
+          ArkeServer.EmailManager.send_email(
+          to: {name, email},
+          template_uuid: "cd331f05-6fb7-460d-9639-d6f14d4ce02f",
+          template_variables: %{name: name, otp: code, expire: "5 minuti"},
+          )
+  end
+
+
 
   defp handle_signin_mode(
          conn,
@@ -348,7 +364,15 @@ defmodule ArkeServer.AuthController do
     Auth.validate_credentials(username, password, project)
     |> case do
       {:ok, member, access_token, refresh_token} ->
-        QueryManager.get_by(project: project, arke: "otp", id: Otp.parse_otp_id("signin", member.id), action: "signin")
+        reviewer = get_review_email()
+        if username in reviewer do
+          if otp == "1234" do
+            handle_signin(conn, username, password, project)
+          else
+            ResponseManager.send_resp(conn, 401, nil, error)
+          end
+        else
+          QueryManager.get_by(project: project, arke: "otp", id: Otp.parse_otp_id("signin", member.id), action: "signin")
         |> case do
           nil ->
             ResponseManager.send_resp(conn, 401, nil, "Unauthorized")
@@ -368,6 +392,8 @@ defmodule ArkeServer.AuthController do
                 ResponseManager.send_resp(conn, 401, nil, nil)
             end
         end
+        end
+
 
       {:error, error} ->
         ResponseManager.send_resp(conn, 401, nil, error)
