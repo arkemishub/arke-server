@@ -137,7 +137,7 @@ defmodule ArkeServer.AuthController do
   """
   def signup(%{body_params: params} = conn, %{"arke_id" => arke_id}) do
     project = get_project(conn.assigns[:arke_project])
-    auth_mode = System.get_env("AUTH_MODE", "defualt")
+    auth_mode = System.get_env("AUTH_MODE", "default")
     arke = ArkeManager.get(arke_id, project)
     with %Arke.Core.Unit{} = unit <- Arke.Core.Unit.load(arke, data_as_klist(params), :create),
          {:ok, unit} <- Arke.Validator.validate(unit, :create, project),
@@ -280,7 +280,7 @@ defmodule ArkeServer.AuthController do
   """
   def signin(conn, %{"username" => username, "password" => password} = params) do
     project = get_project(conn.assigns[:arke_project])
-    auth_mode = System.get_env("AUTH_MODE", "defualt")
+    auth_mode = System.get_env("AUTH_MODE", "default")
     Auth.validate_credentials(username, password, project)
     |> case do
       {:ok, member, access_token, refresh_token} ->
@@ -430,7 +430,7 @@ defmodule ArkeServer.AuthController do
 
   def change_password(conn, %{"old_password" => old_pwd, "password" => new_pwd} = params) do
     project = get_project(conn.assigns[:arke_project])
-    auth_mode = System.get_env("AUTH_MODE", "defualt")
+    auth_mode = System.get_env("AUTH_MODE", "default")
     member = ArkeAuth.Guardian.Plug.current_resource(conn)
 
     case member.arke_id do
@@ -549,7 +549,7 @@ defmodule ArkeServer.AuthController do
 
   def recover_password(conn, %{"email" => email} = params) do
     project = get_project(conn.assigns[:arke_project])
-    auth_mode = System.get_env("AUTH_MODE", "defualt")
+    auth_mode = System.get_env("AUTH_MODE", "default")
 
     case QueryManager.get_by(project: project, group_id: :arke_auth_member, email: email) do
       nil ->  ResponseManager.send_resp(conn, 404, "member not found with given email")
@@ -651,7 +651,7 @@ defmodule ArkeServer.AuthController do
 
   def reset_password(conn, params) do
     project = get_project(conn.assigns[:arke_project])
-    auth_mode = System.get_env("AUTH_MODE", "defualt")
+    auth_mode = System.get_env("AUTH_MODE", "default")
 
     email = Map.get(params, "email", nil)
 
