@@ -327,6 +327,7 @@ defmodule ArkeServer.AuthController do
         full_name = "#{member.data.first_name} #{member.data.last_name}"
         email = member.data.email
         reviewer = get_review_email()
+                 IO.inspect("bellazio2")
           if username in reviewer do
             send_email(full_name,email,"1234")
         else
@@ -338,11 +339,10 @@ defmodule ArkeServer.AuthController do
             ResponseManager.send_resp(conn, 200, data, "OTP send successfully")
           {:error, errors} -> ResponseManager.send_resp(conn, 401, nil, errors)
         end
-
-      {:error, error} ->
-        ResponseManager.send_resp(conn, 401, nil, error)
     end
-            end
+   {:error, error} ->
+       ResponseManager.send_resp(conn, 401, nil, error)
+        end
   end
 
   defp send_email(name,email,code) do
@@ -364,12 +364,13 @@ defmodule ArkeServer.AuthController do
     Auth.validate_credentials(username, password, project)
     |> case do
       {:ok, member, access_token, refresh_token} ->
+    IO.inspect("bellazio")
         reviewer = get_review_email()
         if username in reviewer do
           if otp == "1234" do
             handle_signin(conn, username, password, project)
           else
-            ResponseManager.send_resp(conn, 401, nil, error)
+            ResponseManager.send_resp(conn, 401, nil, "Unauthorized")
           end
         else
           QueryManager.get_by(project: project, arke: "otp", id: Otp.parse_otp_id("signin", member.id), action: "signin")
