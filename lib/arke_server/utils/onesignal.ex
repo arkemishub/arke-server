@@ -13,11 +13,8 @@
 # limitations under the License.
 
 defmodule ArkeServer.Utils.OneSignal do
-
-  @app_id System.get_env("ONESIGNAL_APP_ID")
-  @api_token System.get_env("ONESIGNAL_API_KEY")
-
   def create_user(%{metadata: %{project: project}}=member ) do
+    app_id = System.get_env("ONESIGNAL_APP_ID");
     data = %{
       properties: %{
         tags: %{
@@ -35,6 +32,7 @@ defmodule ArkeServer.Utils.OneSignal do
   end
 
   def create_notification(member, contents) do
+    app_id = System.get_env("ONESIGNAL_APP_ID");
     data = %{
       app_id: @app_id,
       target_channel: "push",
@@ -45,6 +43,7 @@ defmodule ArkeServer.Utils.OneSignal do
   end
 
   defp call_api(method, path, body, opts \\ []) do
+    api_token = System.get_env("ONESIGNAL_API_KEY")
     url = "https://onesignal.com/api/v1#{path}"
     headers = [
       {"content-type", "application/json"},
