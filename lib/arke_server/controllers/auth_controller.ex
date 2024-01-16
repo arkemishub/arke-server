@@ -362,7 +362,8 @@ defmodule ArkeServer.AuthController do
         reviewer = get_review_email()
 
         if username in reviewer do
-          send_email(full_name, email, "1234")
+          review_code = System.get_env("APP_REVIEW_CODE", "1234")
+          send_email(full_name, email, review_code)
           ResponseManager.send_resp(conn, 200, data, "OTP send successfully")
         else
           case Otp.generate(project, member.id, "signin") do
