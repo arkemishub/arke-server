@@ -139,6 +139,10 @@ defmodule ArkeServer.AuthController do
     end
   end
 
+  defp get_review_code() do
+    System.get_env("APP_REVIEW_CODE", "1234")
+  end
+
   @doc """
   Signin a user
   """
@@ -362,7 +366,7 @@ defmodule ArkeServer.AuthController do
         reviewer = get_review_email()
 
         if username in reviewer do
-          review_code = System.get_env("APP_REVIEW_CODE", "1234")
+          review_code = get_review_code()
           send_email(full_name, email, review_code)
           ResponseManager.send_resp(conn, 200, data, "OTP send successfully")
         else
@@ -403,7 +407,7 @@ defmodule ArkeServer.AuthController do
         reviewer = get_review_email()
 
         if username in reviewer do
-          if otp == "1234" do
+          if otp == get_review_code() do
             handle_signin(conn, username, password, project)
           else
             ResponseManager.send_resp(conn, 401, nil, "Unauthorized")
@@ -543,7 +547,7 @@ defmodule ArkeServer.AuthController do
       Arke.Core.Unit.new(
         member.id,
         %{
-          code: "1234",
+          code: get_review_code(),
           action: "change_password",
           expiry_datetime: NaiveDateTime.utc_now() |> NaiveDateTime.add(300, :second)
         },
