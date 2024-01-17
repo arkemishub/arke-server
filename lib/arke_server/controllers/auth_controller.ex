@@ -135,7 +135,7 @@ defmodule ArkeServer.AuthController do
   defp get_review_email() do
     case System.get_env("APP_REVIEW_EMAIL") do
       nil -> []
-      data -> String.split(data, ",")
+      data -> String.split(data, ",") |> Enum.map(&String.trim(&1))
     end
   end
 
