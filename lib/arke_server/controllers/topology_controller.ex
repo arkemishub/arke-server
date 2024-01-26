@@ -163,10 +163,7 @@ defmodule ArkeServer.TopologyController do
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
-    metadata =
-      with true <- Map.has_key?(params, "metadata"),
-           do: params["metadata"],
-           else: (_ -> %{})
+     metadata = Map.get(params,"metadata", %{})
 
     LinkManager.add_node(project, parent_id, child_id, type, metadata)
     |> case do
@@ -195,10 +192,7 @@ defmodule ArkeServer.TopologyController do
     project = conn.assigns[:arke_project]
     # link arke is only in :arke_system so it won't be changed right now
     #    link = ArkeManager.get :arke_link, :arke_system
-    metadata =
-      with true <- Map.has_key?(params, "metadata"),
-           do: params["metadata"],
-           else: (_ -> %{})
+     metadata = Map.get(params,"metadata", %{})
 
     with {:ok, nil} <- LinkManager.delete_node(project, parent_id, child_id, type, metadata) do
       ResponseManager.send_resp(conn, 204)
@@ -217,10 +211,7 @@ defmodule ArkeServer.TopologyController do
       }) do
     project = conn.assigns[:arke_project]
 
-    metadata =
-      with true <- Map.has_key?(params, "metadata"),
-           do: params["metadata"],
-           else: (_ -> %{})
+     metadata = Map.get(params,"metadata", %{})
 
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
@@ -256,7 +247,7 @@ defmodule ArkeServer.TopologyController do
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
-    {metadata, _} = Map.pop(params, "metadata", nil)
+     metadata = Map.get(params,"metadata", %{})
 
     LinkManager.update_node(
       project,
