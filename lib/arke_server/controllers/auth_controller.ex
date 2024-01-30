@@ -472,6 +472,8 @@ defmodule ArkeServer.AuthController do
     end
   end
 
+  def signin(conn, _params), do: ResponseManager.send_resp(conn, 404, nil)
+
   @doc """
   Refresh the JWT tokens. Returns 200 and the tokes if ok
   """

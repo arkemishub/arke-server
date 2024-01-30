@@ -74,6 +74,10 @@ defmodule ArkeServer.MixProject do
       {:arke_auth, "~> 0.1.5"},
       {:hackney, "~> 1.18"},
       {:swoosh, "~> 1.11"},
+      {:ueberauth_google, "~> 0.10.2"},
+      {:ueberauth_facebook, "~> 0.10.0"},
+      {:ueberauth_apple, "~> 0.6.1"},
+      {:ueberauth_github, "~> 0.8.3"}
     ])
   end
 
