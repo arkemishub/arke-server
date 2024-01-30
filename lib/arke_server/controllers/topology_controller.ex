@@ -280,6 +280,7 @@ defmodule ArkeServer.TopologyController do
 
   defp update_link(conn, arke_id, parameter_id, type, metadata) do
     # TODO handle query parameter with plugs
+    # TODO improve checks if permissions are being touched
     project = conn.assigns[:arke_project]
 
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
