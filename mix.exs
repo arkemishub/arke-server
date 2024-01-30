@@ -24,7 +24,8 @@ defmodule ArkeServer.MixProject do
       aliases: aliases(),
       elixirc_paths: elixirc_paths(Mix.env()),
       elixirc_options: [warnings_as_errors: false],
-      test_coverage: [tool: ExCoveralls]
+      test_coverage: [tool: ExCoveralls],
+      versioning: versioning()
     ]
   end
 
@@ -41,6 +42,15 @@ defmodule ArkeServer.MixProject do
   # Specifies which paths to compile per environment.
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  defp versioning do
+    [
+      tag_prefix: "v",
+      commit_msg: "v%s",
+      annotation: "tag release-%s created with mix_version",
+      annotate: true
+    ]
+  end
 
   # Specifies your project dependencies.
   #

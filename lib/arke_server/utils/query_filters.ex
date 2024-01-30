@@ -14,6 +14,7 @@
 
 defmodule ArkeServer.Utils.QueryFilters do
   alias Arke.QueryManager
+  alias Arke.Utils.ErrorGenerator, as: Error
 
   def apply_query_filters(query, {logic, negate, filters}) when is_list(filters) do
     #    Enum.reduce(filters, query, fn filter, new_query ->
@@ -49,26 +50,28 @@ defmodule ArkeServer.Utils.QueryFilters do
          negate \\ false
        ) do
     matches =
-      Regex.scan(~r/\((?:[^)(]+|(?R))*+\)/, base_condition)
+      Regex.scan(~r/\([^)]*(?:\([^)]*\)[^)]*)*\)/, base_condition)
       |> Enum.map(fn m -> Enum.at(m, 0) |> remove_wrap_parentheses() end)
 
-    operators =
+    operator_list =
       Enum.reduce(matches, base_condition, fn match, acc ->
         remove_match(match, acc)
       end)
       |> String.split(",")
-      |> Enum.map(fn x ->
+      |> Enum.reduce(%{error: [],operator: []},fn x,acc ->
         case get_operator(x) do
           {:ok, op} ->
-            op
+            Map.update(acc,:operator,[],fn old ->  [op | old]end)
 
-          {:error, _msg} ->
-            nil
+          {:error, msg} ->
+            Map.update(acc,:error,[],fn old -> msg ++ old end)
         end
       end)
 
-    if Enum.any?(operators, &is_nil(&1)) do
-      Error.create(:filter, "some of the filters are not available")
+      errors = Map.get(operator_list,:error)
+      operators =  Map.get(operator_list,:operator)
+    if length(errors) >0 do
+      {:error,errors}
     else
       filters =
         Enum.with_index(operators)
@@ -174,5 +177,5 @@ defmodule ArkeServer.Utils.QueryFilters do
   defp get_operator("in(" <> _rest), do: {:ok, :in}
   defp get_operator("isnull(" <> _rest), do: {:ok, :isnull}
 
-  defp get_operator(_invalid_filter), do: Error.create(:filter, "filter not available")
+  defp get_operator(invalid_filter), do: Error.create(:filter, "filter `#{invalid_filter}` not available")
 end
