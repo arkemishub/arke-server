@@ -6,6 +6,7 @@ defmodule ArkeServer.TopologyController do
   use ArkeServer, :controller
 
   alias Arke.{QueryManager, LinkManager, StructManager}
+  alias Arke.Utils.ErrorGenerator, as: Error
   alias UnitSerializer
   alias ArkeServer.ResponseManager
   alias ArkeServer.Utils.{QueryFilters, QueryOrder}
@@ -201,15 +202,20 @@ defmodule ArkeServer.TopologyController do
   @doc """
        Update metadata of an existing link
        """ && false
+
   def update_node(%Plug.Conn{body_params: params} = conn, %{
-        "arke_id" => arke_id,
-        "arke_id_two" => arke_id_two,
         "arke_unit_id" => parent_id,
         "link_id" => type,
         "unit_id_two" => child_id
       }) do
-    metadata = Map.get(params, "metadata", %{})
-    update_link(conn, parent_id, child_id, type, metadata)
+    case Map.has_key?(params, "metadata") do
+      true ->
+        update_link(conn, parent_id, child_id, type, Map.get(params, "metadata"))
+
+      false ->
+        {:error, msg} = Error.create("link", "metadata is required")
+        ResponseManager.send_resp(conn, 400, nil, msg)
+    end
   end
 
   @doc """
@@ -274,8 +280,14 @@ defmodule ArkeServer.TopologyController do
         "arke_parameter_id" => parameter_id,
         "arke_id" => arke_id
       }) do
-    metadata = Map.get(params, "metadata", %{})
-    update_link(conn, arke_id, parameter_id, "parameter", metadata)
+    case Map.has_key?(params, "metadata") do
+      true ->
+        update_link(conn, arke_id, parameter_id, "parameter", Map.get(params, "metadata"))
+
+      false ->
+        {:error, msg} = Error.create("link", "metadata is required")
+        ResponseManager.send_resp(conn, 400, nil, msg)
+    end
   end
 
   defp update_link(conn, arke_id, parameter_id, type, metadata) do
