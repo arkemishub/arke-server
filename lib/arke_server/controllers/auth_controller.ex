@@ -24,7 +24,7 @@ defmodule ArkeServer.AuthController do
   alias ArkeAuth.Boundary.OtpManager
   alias Arke.{QueryManager, LinkManager}
   alias Arke.Utils.ErrorGenerator, as: Error
-  alias Arke.DatetimeHandler
+  alias Arke.Utils.DatetimeHandler
 
   alias ArkeServer.Openapi.Responses
 

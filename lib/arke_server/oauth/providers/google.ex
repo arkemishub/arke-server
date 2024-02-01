@@ -1,5 +1,5 @@
 defmodule ArkeServer.OAuth.Provider.Google do
-  alias Arke.DatetimeHandler, as: DatetimeHandler
+  alias Arke.Utils.DatetimeHandler, as: DatetimeHandler
 
   use ArkeServer.OAuth.Core
 

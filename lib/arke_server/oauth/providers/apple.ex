@@ -1,6 +1,6 @@
  defmodule ArkeServer.OAuth.Provider.Apple do
    use ArkeServer.OAuth.Core
-   alias Arke.DatetimeHandler, as: DatetimeHandler
+   alias Arke.Utils.DatetimeHandler, as: DatetimeHandler
    @private_oauth_key :arke_server_oauth
 
    def info(conn) do
