@@ -50,7 +50,7 @@ defmodule ArkeServer.Utils.QueryFilters do
          negate \\ false
        ) do
     matches =
-      Regex.scan(~r/\([^)]*(?:\([^)]*\)[^)]*)*\)/, base_condition)
+      Regex.scan(~r/(?:\(+)(.+?)(?:\)+)/, base_condition, capture: :first)
       |> Enum.map(fn m -> Enum.at(m, 0) |> remove_wrap_parentheses() end)
 
     operator_list =
