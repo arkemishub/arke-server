@@ -29,6 +29,7 @@ defmodule ArkeServer.AuthController do
   alias ArkeServer.Openapi.Responses
 
   alias OpenApiSpex.{Operation, Reference}
+  @mailer_module Application.get_env(:arke_server, :mailer_module)
 
   # ------- start OPENAPI spec -------
   def open_api_operation(action) do
@@ -187,13 +188,7 @@ defmodule ArkeServer.AuthController do
     case Otp.generate(project, username, "signup") do
       {:ok, otp} ->
         full_name = "#{first_name} #{last_name}"
-
-        res_mail =
-          ArkeServer.EmailManager.send_email(
-            to: {full_name, email},
-            template_uuid: "2bac0781-93a9-42f7-8c28-536af16e2e71",
-            template_variables: %{name: full_name, otp: otp.data.code, expire: "5 minuti"}
-          )
+        @mailer_module.signup(conn,params,mode: "otp", unit: otp,code: otp.data.code)
 
         ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
 
@@ -367,14 +362,12 @@ defmodule ArkeServer.AuthController do
 
         if username in reviewer do
           review_code = get_review_code()
-          send_email(full_name, email, review_code)
+          @mailer_module.signin(conn,member, mode: "otp", code: review_code)
           ResponseManager.send_resp(conn, 200, data, "OTP send successfully")
         else
           case Otp.generate(project, member.id, "signin") do
             {:ok, otp} ->
-              send_email(full_name, email, otp.data.code)
-              # TODO implement only `opt` in `StructManager.encode`
-
+              @mailer_module.signin(conn,member,mode: "otp", unit: otp,code: otp.data.code)
               ResponseManager.send_resp(conn, 200, data, "OTP send successfully")
 
             {:error, errors} ->
@@ -387,13 +380,6 @@ defmodule ArkeServer.AuthController do
     end
   end
 
-  defp send_email(name, email, code) do
-    ArkeServer.EmailManager.send_email(
-      to: {name, email},
-      template_uuid: "cd331f05-6fb7-460d-9639-d6f14d4ce02f",
-      template_variables: %{name: name, otp: code, expire: "5 minuti"}
-    )
-  end
 
   defp handle_signin_mode(
          conn,
@@ -664,18 +650,7 @@ defmodule ArkeServer.AuthController do
     case Otp.generate(project, member.id, "reset_password") do
       {:ok, otp} ->
         full_name = "#{member.data.first_name} #{member.data.last_name}"
-
-        res_mail =
-          ArkeServer.EmailManager.send_email(
-            to: {full_name, member.data.email},
-            template_uuid: "f8b2c3e4-7b3e-4ab3-b626-8ddd11cb8a6c",
-            template_variables: %{
-              name: full_name,
-              otp: otp.data.code,
-              expire: "5 minuti",
-              user_email: member.data.email
-            }
-          )
+        @mailer_module.reset_password(conn,member,mode: "otp",unit: otp,code: otp.data.code)
 
         ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
 
@@ -714,21 +689,8 @@ defmodule ArkeServer.AuthController do
           {:ok, unit} ->
             url_token = unit.data.token
             endpoint = "#{System.get_env("RESET_PASSWORD_ENDPOINT", "")}/#{url_token}"
-
-            case ArkeServer.EmailManager.send_email(
-                   to: Map.fetch!(user.data, :email),
-                   subject: "Reset Password",
-                   template_name: "reset_password",
-                   text: endpoint,
-                   custom_vars: %{"reset-endpoint": endpoint}
-                 ) do
-              {:ok, _} ->
-                ResponseManager.send_resp(conn, 200, nil)
-
-              {:error, {_code, _error}} ->
-                {:error, msg} = Error.create(:auth, "service mail error")
-                ResponseManager.send_resp(conn, 400, nil, msg)
-            end
+            @mailer_module.reset_password(conn,user,mode: "email", unit: unit, endpoint: endpoint)
+            ResponseManager.send_resp(conn, 200, nil)
         end
     end
   end
