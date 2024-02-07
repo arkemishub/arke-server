@@ -104,6 +104,12 @@ defmodule ArkeServer.Router do
 
     put("/:arke_id/parameter/:arke_parameter_id", TopologyController, :update_parameter)
 
+    put(
+      "/:arke_id/unit/:arke_unit_id/link/:link_id/:arke_id_two/unit/:unit_id_two",
+      TopologyController,
+      :update_node
+    )
+
     # -------- POST --------
 
     post("/:arke_id/unit", ArkeController, :create)
