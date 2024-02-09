@@ -6,6 +6,7 @@ defmodule ArkeServer.TopologyController do
   use ArkeServer, :controller
 
   alias Arke.{QueryManager, LinkManager, StructManager}
+  alias Arke.Utils.ErrorGenerator, as: Error
   alias UnitSerializer
   alias ArkeServer.ResponseManager
   alias ArkeServer.Utils.{QueryFilters, QueryOrder}
@@ -57,6 +58,25 @@ defmodule ArkeServer.TopologyController do
       ],
       security: [%{"authorization" => []}],
       responses: Responses.get_responses()
+    }
+  end
+
+  def update_node_operation() do
+    %Operation{
+      tags: ["Topology"],
+      summary: "Update connection",
+      description: "Update link metadata between two units",
+      operationId: "ArkeServer.TopologyController.update_node(",
+      parameters: [
+        %Reference{"$ref": "#/components/parameters/arke_id"},
+        Operation.parameter(:arke_unit_id, :path, :string, "Parent Unit ID", required: true),
+        %Reference{"$ref": "#/components/parameters/link_id"},
+        Operation.parameter(:arke_id_two, :path, :string, "Child Arke ID", required: true),
+        Operation.parameter(:unit_id_two, :path, :string, "Child Arke ID", required: true),
+        %Reference{"$ref": "#/components/parameters/arke-project-key"}
+      ],
+      security: [%{"authorization" => []}],
+      responses: Responses.get_responses([200])
     }
   end
 
@@ -163,7 +183,7 @@ defmodule ArkeServer.TopologyController do
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
-     metadata = Map.get(params,"metadata", %{})
+    metadata = Map.get(params, "metadata", %{})
 
     LinkManager.add_node(project, parent_id, child_id, type, metadata)
     |> case do
@@ -180,6 +200,25 @@ defmodule ArkeServer.TopologyController do
   end
 
   @doc """
+       Update metadata of an existing link
+       """ && false
+
+  def update_node(%Plug.Conn{body_params: params} = conn, %{
+        "arke_unit_id" => parent_id,
+        "link_id" => type,
+        "unit_id_two" => child_id
+      }) do
+    case Map.has_key?(params, "metadata") do
+      true ->
+        update_link(conn, parent_id, child_id, type, Map.get(params, "metadata"))
+
+      false ->
+        {:error, msg} = Error.create("link", "metadata is required")
+        ResponseManager.send_resp(conn, 400, nil, msg)
+    end
+  end
+
+  @doc """
        Delete a connection between two units
        """ && false
   def delete_node(%Plug.Conn{body_params: params} = conn, %{
@@ -192,7 +231,7 @@ defmodule ArkeServer.TopologyController do
     project = conn.assigns[:arke_project]
     # link arke is only in :arke_system so it won't be changed right now
     #    link = ArkeManager.get :arke_link, :arke_system
-     metadata = Map.get(params,"metadata", %{})
+    metadata = Map.get(params, "metadata", %{})
 
     with {:ok, nil} <- LinkManager.delete_node(project, parent_id, child_id, type, metadata) do
       ResponseManager.send_resp(conn, 204)
@@ -211,7 +250,7 @@ defmodule ArkeServer.TopologyController do
       }) do
     project = conn.assigns[:arke_project]
 
-     metadata = Map.get(params,"metadata", %{})
+    metadata = Map.get(params, "metadata", %{})
 
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
@@ -241,19 +280,29 @@ defmodule ArkeServer.TopologyController do
         "arke_parameter_id" => parameter_id,
         "arke_id" => arke_id
       }) do
+    case Map.has_key?(params, "metadata") do
+      true ->
+        update_link(conn, arke_id, parameter_id, "parameter", Map.get(params, "metadata"))
+
+      false ->
+        {:error, msg} = Error.create("link", "metadata is required")
+        ResponseManager.send_resp(conn, 400, nil, msg)
+    end
+  end
+
+  defp update_link(conn, arke_id, parameter_id, type, metadata) do
+    # TODO handle query parameter with plugs
+    # TODO improve checks if permissions are being touched
     project = conn.assigns[:arke_project]
 
-    # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
-
-     metadata = Map.get(params,"metadata", %{})
 
     LinkManager.update_node(
       project,
       arke_id,
       parameter_id,
-      "parameter",
+      type,
       metadata
     )
     |> case do
