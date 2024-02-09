@@ -23,6 +23,23 @@ defmodule ArkeServer.Router do
     plug(ArkeServer.Plugs.NotAuthPipeline)
   end
 
+  pipeline :browser do
+    plug(:accepts, ["html"])
+    plug(:fetch_session)
+    plug(:fetch_flash)
+    plug(:protect_from_forgery)
+    plug(:put_secure_browser_headers)
+  end
+
+  pipeline :oauth do
+    plug(Ueberauth,
+      otp_app: :arke_server,
+      base_path: "/lib/auth/signin"
+    )
+
+    plug(ArkeServer.Plugs.OAuth)
+  end
+
   pipeline :auth_api do
     plug(:accepts, ["json", "multipart"])
     plug(ArkeServer.Plugs.AuthPipeline)
@@ -63,8 +80,19 @@ defmodule ArkeServer.Router do
       post("/reset_password", AuthController, :reset_password)
       post("/reset_password/:token", AuthController, :reset_password)
 
-      pipe_through(:api)
+      scope "/signin/:provider" do
+        pipe_through(:oauth)
+        post("/", OAuthController, :handle_client_login)
+
+        pipe_through(:browser)
+        get("/", OAuthController, :request)
+        get("/callback", OAuthController, :callback)
+        post("/callback", OAuthController, :callback)
+      end
+
       post("/refresh", AuthController, :refresh)
+
+      pipe_through(:auth_api)
       post("/verify", AuthController, :verify)
     end
 

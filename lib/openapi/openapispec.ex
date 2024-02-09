@@ -132,6 +132,16 @@ defmodule ArkeServer.ApiSpec do
           type: :string,
           example: "filter=and(gte(age,23),contains(name,string))"
         }
+      },
+      "provider" => %Parameter{
+        name: "provider",
+        in: :path,
+        required: true,
+        description: "Oauth provider",
+        schema: %Schema{
+          type: :string,
+          example: "google"
+        }
       }
     }
   end
