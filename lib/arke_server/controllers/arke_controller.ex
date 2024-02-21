@@ -314,6 +314,7 @@ defmodule ArkeServer.ArkeController do
           ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
 
         case ArkeManager.call_func(arke, String.to_atom(function_name), [arke]) do
+          {:file, file, filename} -> send_download(conn, {:binary, file}, filename: filename)
           {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
           {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
           {:ok, content, status} -> ResponseManager.send_resp(conn, status, %{content: content})
@@ -350,6 +351,7 @@ defmodule ArkeServer.ArkeController do
         case unit do
           %Arke.Core.Unit{} = unit ->
             case ArkeManager.call_func(arke, String.to_atom(function_name), [arke, unit]) do
+              {:file, file, filename} -> send_download(conn, {:binary, file}, filename: filename)
               {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
               {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
               {:ok, content, status} -> ResponseManager.send_resp(conn, status, %{content: content})
