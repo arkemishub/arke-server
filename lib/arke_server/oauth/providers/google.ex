@@ -21,7 +21,7 @@ defmodule ArkeServer.OAuth.Provider.Google do
 
   def handle_cleanup(conn), do: put_private(conn, @private_oauth_key, nil)
 
-  def handle_request(%Plug.Conn{query_params: %{"token" => token}} = conn) do
+  def handle_request(%Plug.Conn{body_params: %{"account" => %{"id_token"=>token}}} = conn) do
     try do
       header = JOSE.JWT.peek_protected(token).fields
 

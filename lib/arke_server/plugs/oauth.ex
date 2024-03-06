@@ -1,6 +1,7 @@
 defmodule ArkeServer.Plugs.OAuth do
   @behaviour Plug
 
+  # return the available routes based on the supported provider defined in the :arke_server configuration
   @impl Plug
   def init(opts \\ []) do
     env = get_env([:arke_server, Keyword.get(opts, :otp_app)])
@@ -43,6 +44,7 @@ defmodule ArkeServer.Plugs.OAuth do
     [{{strategy_options.request_path, "POST"}, request_mfa}]
   end
 
+  # return the enabled oauth provider from the configuration
   defp get_provider_list(environment, options) do
     with {:ok, prov_list} <- Keyword.fetch(environment, :providers) do
       case Keyword.get(options, :providers, :all) do
@@ -54,6 +56,7 @@ defmodule ArkeServer.Plugs.OAuth do
     end
   end
 
+  # get the base bath used for the sso
   defp get_base_path(environment, options),
     do: Keyword.get(options, :base_url, Keyword.get(environment, :base_url, "lib/auth/signin"))
 
@@ -86,6 +89,7 @@ defmodule ArkeServer.Plugs.OAuth do
     String.replace_trailing(Keyword.get(options, :request_path, default_path), "/", "")
   end
 
+  # create the struct used to find which provide module call and everything related to the request
   defp build_strategy_options(base_path, strategy) do
     {name, {module, options}} = strategy
 

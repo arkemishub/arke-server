@@ -44,7 +44,8 @@ defmodule ArkeServer.OAuthController do
       ) do
     case init_oauth_flow(auth, provider) do
       {:ok, body} -> ResponseManager.send_resp(conn, 200, %{content: body})
-      {:error, msg} -> ResponseManager.send_resp(conn, 400, msg)
+      {:error, msg} ->
+        ResponseManager.send_resp(conn, 400, msg)
     end
   end
 
@@ -59,6 +60,7 @@ defmodule ArkeServer.OAuthController do
     {:error, msg} = Error.create(:auth, "invalid token/provider")
     ResponseManager.send_resp(conn, 400, msg)
   end
+
 
   # ------- Client Side -------
 
@@ -83,11 +85,13 @@ defmodule ArkeServer.OAuthController do
     with {:ok, nil} <- check_provider(provider),
          {:ok, user} <- check_oauth(auth_info),
          {:ok, user, access_token, refresh_token} <-
-           Auth.create_tokens(user) do
+           Auth.create_tokens(user,true) do
+      # todo: if the member exists create different token (set false instead of true)
       content =
         Map.merge(Arke.StructManager.encode(user, type: :json), %{
           access_token: access_token,
-          refresh_token: refresh_token
+          refresh_token: refresh_token,
+          uncompleted_data: true
         })
 
       {:ok, content}
@@ -133,8 +137,13 @@ defmodule ArkeServer.OAuthController do
   defp create_user(user_data) do
     user_model = ArkeManager.get(:user, :arke_system)
     pwd = UUID.uuid4()
-    updated_data = Map.put(user_data, :password, pwd) |> Map.put(:type, "customer")
-    QueryManager.create(:arke_system, user_model, updated_data)
+    updated_data = Map.put(user_data, :password, pwd)
+    email = Map.get(user_data,:email)
+    case QueryManager.get_by(project: :arke_system, arke_id: :user, email: email) do
+      nil -> QueryManager.create(:arke_system, user_model, updated_data)
+      user -> {:ok,user}
+    end
+
   end
 
   defp create_link(parent_id, child_id, provider) do

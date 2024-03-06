@@ -52,7 +52,7 @@ defmodule ArkeServer.Plugs.SSOAuthPipeline do
              """ && false
 
   use Guardian.Plug.Pipeline,
-      otp_app: :arke_auth_sso,
+      otp_app: :arke_auth,
       module: ArkeAuth.SSOGuardian,
       error_handler: ArkeServer.ErrorHandlers.SSOAuth
 
@@ -66,7 +66,7 @@ defmodule ArkeServer.Plugs.SSONotAuthPipeline do
              Pipeline for all the non-authorized endpoints
              """ && false
   use Guardian.Plug.Pipeline,
-      otp_app: :arke_auth_sso,
+      otp_app: :arke_auth,
       module: ArkeAuth.SSOGuardian,
       error_handler: ArkeServer.ErrorHandlers.SSOAuth
 
