@@ -22,7 +22,7 @@ defmodule ArkeServer.ArkeController do
   alias Arke.Boundary.ArkeManager
   alias UnitSerializer
   alias ArkeServer.ResponseManager
-  alias ArkeServer.Utils.{QueryFilters, QueryOrder}
+  alias ArkeServer.Utils.{QueryFilters, QueryOrder, Permission}
 
   alias ArkeServer.Openapi.Responses
 
@@ -227,7 +227,7 @@ defmodule ArkeServer.ArkeController do
   def get_all_unit(conn, %{"arke_id" => id}) do
     project = conn.assigns[:arke_project]
 
-    case get_permission(conn, id, :get) do
+    case Permission.get_permission(conn, id, :get) do
       {:ok, permission} ->
         member = ArkeAuth.Guardian.Plug.current_resource(conn)
 
@@ -239,8 +239,6 @@ defmodule ArkeServer.ArkeController do
         load_links = Map.get(conn.query_params, "load_links", "false") == "true"
         load_values = Map.get(conn.query_params, "load_values", "false") == "true"
         load_files = Map.get(conn.query_params, "load_files", "false") == "true"
-        IO.inspect(Map.get(permission, :child_only, false))
-        IO.inspect(permission)
         {count, units} =
           QueryManager.query(project: project, arke: id)
           |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
@@ -308,7 +306,7 @@ defmodule ArkeServer.ArkeController do
   def call_arke_function(conn, %{"arke_id" => arke_id, "function_name" => function_name}) do
     project = conn.assigns[:arke_project]
 
-    case get_permission(conn, arke_id, :get) do
+    case Permission.get_permission(conn, arke_id, :get) do
       {:ok, permission} ->
         arke =
           ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
@@ -336,7 +334,7 @@ defmodule ArkeServer.ArkeController do
       }) do
     project = conn.assigns[:arke_project]
 
-    case get_permission(conn, arke_id, :get) do
+    case Permission.get_permission(conn, arke_id, :get) do
       {:ok, permission} ->
         arke =
           ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
@@ -387,37 +385,5 @@ defmodule ArkeServer.ArkeController do
       count: count,
       items: StructManager.encode(units, type: :json)
     })
-  end
-
-  defp get_permission(conn, arke_id, action) do
-    member = ArkeAuth.Guardian.Plug.current_resource(conn)
-    project = conn.assigns[:arke_project]
-    arke = ArkeManager.get(arke_id, project)
-
-    case ArkeAuth.Core.Member.get_permission(member, arke) do
-      {:ok, permission} ->
-        case Map.get(permission, action, false) do
-          true ->
-            permission = get_permission_filter(conn, member, permission)
-            {:ok, permission}
-
-          false ->
-            {:error, :not_authorized}
-        end
-
-      {:error, nil} ->
-        {:error, :not_authorized}
-    end
-  end
-
-  defp get_permission_filter(conn, member, %{filter: nil} = permission), do: permission
-
-  defp get_permission_filter(conn, member, permission) do
-    filter = String.replace(permission.filter, "{{arke_member}}", Atom.to_string(member.id))
-
-    case QueryFilters.get_from_string(conn, filter) do
-      {:ok, data} -> Map.put(permission, :filter, data)
-      {:error, _msg} -> Map.put(permission, :filter, nil)
-    end
   end
 end
