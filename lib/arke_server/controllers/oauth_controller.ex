@@ -27,6 +27,7 @@ defmodule ArkeServer.OAuthController do
   alias Arke.LinkManager
   alias Arke.{QueryManager}
   alias Arke.Utils.ErrorGenerator, as: Error
+  alias Arke.Core.Unit
 
   # This is the fallback if the given provider does not exists.
   # Usually it is used for the `identity` provider (username, password)
@@ -42,9 +43,11 @@ defmodule ArkeServer.OAuthController do
           conn,
         _params
       ) do
-    case init_oauth_flow(auth, provider) do
+    project = conn.assigns[:arke_project]
+    case init_oauth_flow(project,auth, provider) do
       {:ok, body} -> ResponseManager.send_resp(conn, 200, %{content: body})
-      {:error, msg} -> ResponseManager.send_resp(conn, 400, msg)
+      {:error, msg} ->
+        ResponseManager.send_resp(conn, 400, msg)
     end
   end
 
@@ -60,6 +63,52 @@ defmodule ArkeServer.OAuthController do
     ResponseManager.send_resp(conn, 400, msg)
   end
 
+  def handle_create_member(
+    %Plug.Conn{body_params: params}=conn,
+        %{"member" => member_id, "provider" => provider}=_all_params
+      ) do
+    user_resource = ArkeAuth.SSOGuardian.Plug.current_resource(conn)
+    user = QueryManager.get_by(project: :arke_system, arke_id: :user,id: user_resource.id)
+    project = conn.assigns[:arke_project]
+    provider_arke_id = String.to_existing_atom("oauth_#{provider}")
+    enable_sso_group = GroupManager.get(:enable_sso,project)
+    # check if the given member_id is enable to sso login
+    # check if the user has any oauth link
+    # check if one of the oauth link has the arke_id equal to the given provider
+    with true <- member_id in (GroupManager.get_arke_list(enable_sso_group) |> Enum.map(fn ak -> to_string(ak.id)end)),
+         [_data] = link_list <- get_link(user,:child),
+         %Unit{}=unit <- Enum.find(link_list, fn link_unit -> link_unit.arke_id == provider_arke_id end) do
+      case check_member(project,user) do
+        {:ok,nil} ->
+        member_model = ArkeManager.get(String.to_atom(member_id),project)
+        member_data = Map.put(params,"arke_system_user", to_string(user.id)) |> Map.put("email",user.data.email)
+        new_data = for {key, val} <- member_data, into: %{}, do: {String.to_atom(key), val}
+        case QueryManager.create(project,member_model,new_data) do
+          {:ok,member} -> Auth.create_tokens(member,false)
+          err -> ResponseManager.send_resp(conn, 400, err)
+        end
+        data -> ResponseManager.send_resp(conn, 200, data)
+      end
+      else nil -> # there are no units associated with that provider or the provider does not exist
+            # in any of the unit sso associated with the user
+        {:error, msg} = Error.create(:sso, "invalid provider")
+        ResponseManager.send_resp(conn, 400, msg)
+      false -> {:error, msg} = Error.create(:sso, "invalid member")
+               ResponseManager.send_resp(conn, 400, msg) # sso not enabled for the given member
+    end
+
+
+  end
+
+  def handle_create_member(
+         conn,
+        _params
+      ) do
+    {:error, msg} = Error.create(:auth, "invalid token/provider")
+    ResponseManager.send_resp(conn, 400, msg)
+  end
+
+
   # ------- Client Side -------
 
   # ------- Using redirects -------
@@ -71,7 +120,8 @@ defmodule ArkeServer.OAuthController do
         %{assigns: %{ueberauth_auth: %{provider: provider} = auth}, req_headers: _header} = conn,
         _params
       ) do
-    case init_oauth_flow(auth, provider) do
+    project = conn.assigns[:arke_project]
+    case init_oauth_flow(project,auth, provider) do
       {:ok, body} -> ResponseManager.send_resp(conn, 200, %{content: body})
       {:error, msg} -> ResponseManager.send_resp(conn, 400, msg)
     end
@@ -79,18 +129,28 @@ defmodule ArkeServer.OAuthController do
 
   # ------- end Using redirects -------
 
-  defp init_oauth_flow(auth_info, provider) do
+  defp init_oauth_flow(project,auth_info, provider) do
     with {:ok, nil} <- check_provider(provider),
-         {:ok, user} <- check_oauth(auth_info),
-         {:ok, user, access_token, refresh_token} <-
-           Auth.create_tokens(user) do
-      content =
-        Map.merge(Arke.StructManager.encode(user, type: :json), %{
-          access_token: access_token,
-          refresh_token: refresh_token
-        })
+         {:ok, user} <- check_oauth(auth_info) do
+         case check_member(project,user) do
+            {:ok,nil} -> {:ok, user, access_token, refresh_token} = Auth.create_tokens(user,true)
+                content =
+                  Map.merge(Arke.StructManager.encode(user, type: :json), %{
+                    access_token: access_token,
+                    refresh_token: refresh_token,
+                    uncompleted_data: true
+                  })
+                {:ok, content}
+            {:ok, resource_member, access_token, refresh_token} ->
+                        content =
+                          Map.merge(Arke.StructManager.encode(resource_member, type: :json), %{
+                            access_token: access_token,
+                            refresh_token: refresh_token,
+                            uncompleted_data: false,
+                          })
+                     {:ok, content}
+         end
 
-      {:ok, content}
     else
       {:error, reason} -> {:error, reason}
     end
@@ -133,14 +193,29 @@ defmodule ArkeServer.OAuthController do
   defp create_user(user_data) do
     user_model = ArkeManager.get(:user, :arke_system)
     pwd = UUID.uuid4()
-    updated_data = Map.put(user_data, :password, pwd) |> Map.put(:type, "customer")
-    QueryManager.create(:arke_system, user_model, updated_data)
+    updated_data = Map.put(user_data, :password, pwd)
+    email = Map.get(user_data,:email)
+    case QueryManager.get_by(project: :arke_system, arke_id: :user, email: email) do
+      nil -> QueryManager.create(:arke_system, user_model, updated_data)
+      user -> {:ok,user}
+    end
+
   end
 
   defp create_link(parent_id, child_id, provider) do
     LinkManager.add_node(:arke_system, to_string(parent_id), to_string(child_id), "oauth", %{
       provider: provider
     })
+  end
+
+  defp get_link(unit,direction) do
+    QueryManager.query(project: :arke_system)
+    |> QueryManager.link(unit,
+         depth: 1,
+         direction: direction,
+         type: "oauth"
+       )
+    |> QueryManager.all()
   end
 
   # check if exists a user with the given data, if it has a link with another user or if it is new
@@ -169,13 +244,7 @@ defmodule ArkeServer.OAuthController do
 
       oauth_unit ->
         # check if there is a link between the given oauth_unit and an user
-        case QueryManager.query(project: :arke_system)
-             |> QueryManager.link(oauth_unit,
-               depth: 1,
-               direction: :parent,
-               type: "oauth"
-             )
-             |> QueryManager.all() do
+        case get_link(oauth_unit,:parent) do
           [] ->
             # create a user and connect the two
             with {:ok, user} <- create_user(oauth_user_data),
@@ -190,9 +259,16 @@ defmodule ArkeServer.OAuthController do
             end
 
           # everything good log in
-          userList ->
-            {:ok, List.first(userList)}
+          user_list ->
+            {:ok, List.first(user_list)}
         end
     end
+  end
+
+  defp check_member(project,user) do
+  case QueryManager.get_by(project: project, group_id: "arke_auth_member", arke_system_user: user.id ) do
+  nil -> {:ok,nil}
+  member -> Auth.create_tokens(Auth.format_member(member),false)
+  end
   end
 end
