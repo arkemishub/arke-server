@@ -107,8 +107,8 @@ defmodule ArkeServer.Router do
         # get("/callback", OAuthController, :callback)
         # post("/callback", OAuthController, :callback)
       end
-      scope "/member/:provider" do
-        pipe_through([:oauth,:sso_auth_api])
+      scope "/:member/:provider" do
+        pipe_through([:sso_auth_api])
         post("/", OAuthController, :handle_create_member)
       end
       post("/refresh", AuthController, :refresh)
