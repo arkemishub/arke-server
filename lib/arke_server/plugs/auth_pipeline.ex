@@ -27,8 +27,8 @@ defmodule ArkeServer.Plugs.AuthPipeline do
     error_handler: ArkeServer.ErrorHandlers.Auth
 
   plug(Guardian.Plug.VerifyHeader, scheme: "Bearer")
-  plug(Guardian.Plug.EnsureAuthenticated)
-  plug(Guardian.Plug.LoadResource)
+#  plug(Guardian.Plug.EnsureAuthenticated)
+  plug(Guardian.Plug.LoadResource, allow_blank: true)
 end
 
 defmodule ArkeServer.Plugs.NotAuthPipeline do

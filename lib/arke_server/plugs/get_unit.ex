@@ -18,6 +18,8 @@ defmodule ArkeServer.Plugs.GetUnit do
              """ && false
   import Plug.Conn
   alias Arke.{QueryManager}
+  alias ArkeServer.Utils.Permission
+  alias ArkeServer.Utils.{QueryFilters}
 
   ## Once the project header has been set to mandatory retrieve it as follows:
   #  project = conn.assigns[:arke_project]
@@ -49,13 +51,22 @@ defmodule ArkeServer.Plugs.GetUnit do
   end
 
   defp get_unit(conn, project, arke_id, unit_id) do
-    try do
-      case QueryManager.get_by(project: project, arke: arke_id, id: unit_id) do
-        nil -> nil
-        unit -> unit
-      end
-    rescue
-      _ ->
+    case Permission.get_permission(conn, arke_id, :get) do
+      {:ok, permission} ->
+        member = ArkeAuth.Guardian.Plug.current_resource(conn)
+
+        unit = QueryManager.query(project: project, arke: arke_id)
+        |> QueryFilters.apply_query_filters(permission.filter)
+        |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
+        |> QueryManager.where(id: unit_id)
+        |> QueryManager.one
+
+        case unit do
+          nil -> not_found(conn)
+          unit -> unit
+        end
+
+      {:error, :not_authorized} ->
         not_found(conn)
     end
   end

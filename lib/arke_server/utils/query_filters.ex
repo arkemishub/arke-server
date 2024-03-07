@@ -25,6 +25,12 @@ defmodule ArkeServer.Utils.QueryFilters do
 
   def apply_query_filters(query, _filters), do: query
 
+  def apply_member_child_only(query, member, true) when not is_nil(member) do
+    QueryManager.link(query, member, depth: 10)
+  end
+
+  def apply_member_child_only(query, _, _), do: query
+
   defp apply_filter(query, :and, negate, filters), do: QueryManager.and_(query, negate, filters)
   defp apply_filter(query, :or, negate, filters), do: QueryManager.or_(query, negate, filters)
 
