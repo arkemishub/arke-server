@@ -24,12 +24,9 @@ defmodule ArkeServer.Router do
   ########################################################################
 
   pipeline :oauth do
-    plug(Ueberauth,
-      otp_app: :arke_server,
-      base_path: "/lib/auth/signin"
-    )
-
-    plug(ArkeServer.Plugs.OAuth)
+    plug(ArkeServer.Plugs.OAuth,
+                   otp_app: :arke_server,
+                   base_path: "/lib/auth/signin")
   end
 
   pipeline :sso_auth_api do
