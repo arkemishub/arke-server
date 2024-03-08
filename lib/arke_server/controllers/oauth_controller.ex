@@ -172,7 +172,7 @@ defmodule ArkeServer.OAuthController do
   end
 
   defp check_oauth(auth) do
-    username = UUID.uuid1(:hex)
+    username = auth.info.email || UUID.uuid1(:hex)
     email = auth.info.email || "#{username}@foo.domain"
     oauth_id = to_string(auth.uid)
     provider = auth.provider
