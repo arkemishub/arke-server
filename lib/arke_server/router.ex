@@ -15,7 +15,7 @@
 defmodule ArkeServer.Router do
   @moduledoc """
              Module where all the routes are defined. Too see run in the CLI: `mix phx.routes ArkeServer.Router`
-             """ && false
+             """
   use ArkeServer, :router
 
 

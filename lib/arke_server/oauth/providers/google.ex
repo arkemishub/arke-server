@@ -49,7 +49,6 @@ defmodule ArkeServer.OAuth.Provider.Google do
 
   def handle_request(conn) do
     {:error, msg} = Error.create(:auth, "token not found")
-
     Plug.Conn.assign(
       conn,
       :arke_server_oauth_failure,
@@ -90,7 +89,8 @@ defmodule ArkeServer.OAuth.Provider.Google do
            DatetimeHandler.from_unix(Map.get(decoded, "exp", 0)) > DatetimeHandler.now(:datetime) do
       {:ok, decoded}
     else
-      _ -> Error.create(:auth, "invalid token")
+      err ->
+        Error.create(:auth, "invalid token")
     end
   end
 end

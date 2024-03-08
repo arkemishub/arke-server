@@ -80,14 +80,16 @@ defmodule ArkeServer.OAuthController do
          %Unit{}=unit <- Enum.find(link_list, fn link_unit -> link_unit.arke_id == provider_arke_id end) do
       case check_member(project,user) do
         {:ok,nil} ->
-        member_model = ArkeManager.get(String.to_atom(member_id),project)
-        member_data = Map.put(params,"arke_system_user", to_string(user.id)) |> Map.put("email",user.data.email)
-        new_data = for {key, val} <- member_data, into: %{}, do: {String.to_atom(key), val}
-        case QueryManager.create(project,member_model,new_data) do
-          {:ok,member} -> Auth.create_tokens(member,false)
+        case create_member(project,user,params,member_id) do
+          {:ok,member} ->
+            {:ok, resource_member, access_token, refresh_token} = Auth.create_tokens(member,false)
+            content = create_response_body(resource_member,access_token,refresh_token,false)
+            ResponseManager.send_resp(conn, 200, content)
           err -> ResponseManager.send_resp(conn, 400, err)
         end
-        data -> ResponseManager.send_resp(conn, 200, data)
+        {:ok, resource_member, access_token, refresh_token} ->
+          content = create_response_body(resource_member,access_token,refresh_token,false)
+          ResponseManager.send_resp(conn, 200, content)
       end
       else nil -> # there are no units associated with that provider or the provider does not exist
             # in any of the unit sso associated with the user
@@ -96,8 +98,6 @@ defmodule ArkeServer.OAuthController do
       false -> {:error, msg} = Error.create(:sso, "invalid member")
                ResponseManager.send_resp(conn, 400, msg) # sso not enabled for the given member
     end
-
-
   end
 
   def handle_create_member(
@@ -133,26 +133,19 @@ defmodule ArkeServer.OAuthController do
     with {:ok, nil} <- check_provider(provider),
          {:ok, user} <- check_oauth(auth_info) do
          case check_member(project,user) do
+           #if member does not exists creat a SSO token
             {:ok,nil} -> {:ok, user, access_token, refresh_token} = Auth.create_tokens(user,true)
-                content =
-                  Map.merge(Arke.StructManager.encode(user, type: :json), %{
-                    access_token: access_token,
-                    refresh_token: refresh_token,
-                    uncompleted_data: true
-                  })
+                content = create_response_body(user,access_token,refresh_token,true)
                 {:ok, content}
+                # if exists authenticate the user
             {:ok, resource_member, access_token, refresh_token} ->
-                        content =
-                          Map.merge(Arke.StructManager.encode(resource_member, type: :json), %{
-                            access_token: access_token,
-                            refresh_token: refresh_token,
-                            uncompleted_data: false,
-                          })
-                     {:ok, content}
+              content = create_response_body(resource_member,access_token,refresh_token,false)
+              {:ok, content}
          end
 
     else
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->IO.inspect(reason,label: "qualcosa rott")
+        {:error, reason}
     end
   end
 
@@ -188,6 +181,21 @@ defmodule ArkeServer.OAuthController do
     }
 
     check_oauth_user(oauth_user_data, provider)
+  end
+
+  defp create_response_body(resource,access_token,refresh_token,uncompleted_data) do
+    Map.merge(Arke.StructManager.encode(resource, type: :json), %{
+      access_token: access_token,
+      refresh_token: refresh_token,
+      uncompleted_data: uncompleted_data,
+    })
+  end
+
+  defp create_member(project,user,params,member_id) do
+    member_model = ArkeManager.get(String.to_atom(member_id),project)
+    member_data = Map.put(params,"arke_system_user", to_string(user.id)) |> Map.put("email",user.data.email)
+    new_data = for {key, val} <- member_data, into: %{}, do: {String.to_atom(key), val}
+    QueryManager.create(project,member_model,new_data)
   end
 
   defp create_user(user_data) do
