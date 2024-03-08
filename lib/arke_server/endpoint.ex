@@ -16,7 +16,7 @@ defmodule ArkeServer.Endpoint do
 
   @moduledoc """
              Module which define the Plug used for each call
-             """ && false
+             """
   use Phoenix.Endpoint, otp_app: :arke_server
 
   # The session will be stored in the cookie and signed,

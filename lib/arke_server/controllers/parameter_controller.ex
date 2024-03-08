@@ -14,13 +14,18 @@
 
 defmodule ArkeServer.ParameterController do
   use ArkeServer, :controller
+
+  # Openapi request definition
+  use ArkeServer.Openapi.Spec, module: ArkeServer.Openapi.ParameterControllerSpec
+
+
   alias Arke.Boundary.ParameterManager
   alias ArkeServer.ResponseManager
   alias Arke.StructManager
 
   @doc """
        Get parameter value
-       """ && false
+       """
   def get_parameter_value(conn, %{"parameter" => parameter_id}) do
     project = conn.assigns[:arke_project]
     unit = conn.assigns[:unit]

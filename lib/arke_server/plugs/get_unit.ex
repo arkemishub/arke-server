@@ -15,7 +15,7 @@
 defmodule ArkeServer.Plugs.GetUnit do
   @moduledoc """
              Plug to get a unit from the id in the url
-             """ && false
+             """
   import Plug.Conn
   alias Arke.{QueryManager}
   alias ArkeServer.Utils.Permission

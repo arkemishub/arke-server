@@ -12,19 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-defmodule ArkeServer.ErrorHelpers do
+defmodule ArkeServer.Openapi.ParameterControllerSpec do
   @moduledoc """
-             Conveniences for translating and building error messages.
-             """
+  Definition of the ApiSpec for `ArkeServer.ParameterController`.
+  """
 
-  @doc """
-       Translates an error message.
-       """
-  def translate_error({msg, opts}) do
-    # Because the error messages we show in our forms and APIs
-    # are defined inside Ecto, we need to translate them dynamically.
-    Enum.reduce(opts, msg, fn {key, value}, acc ->
-      String.replace(acc, "%{#{key}}", fn _ -> to_string(value) end)
-    end)
-  end
+  alias ArkeServer.Openapi.Responses
+  alias OpenApiSpex.{Operation, Reference}
+  #todo: all api operation for parameter
+
 end

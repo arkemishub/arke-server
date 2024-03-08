@@ -19,6 +19,11 @@ defmodule ArkeServer.OAuthController do
 
   import Plug.Conn
   use ArkeServer, :controller
+
+  # Openapi request definition
+  use ArkeServer.Openapi.Spec, module: ArkeServer.Openapi.OAuthControllerSpec
+
+
   alias Arke.Boundary.GroupManager
 
   alias ArkeServer.ResponseManager

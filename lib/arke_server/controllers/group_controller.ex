@@ -15,8 +15,13 @@
 defmodule ArkeServer.GroupController do
   @moduledoc """
                        Documentation for `ArkeServer.ParameterController`
-             """ && false
+             """
   use ArkeServer, :controller
+
+  # Openapi request definition
+  use ArkeServer.Openapi.Spec, module: ArkeServer.Openapi.GroupControllerSpec
+
+
   alias Arke.{QueryManager, LinkManager, StructManager}
   alias Arke.Core.Unit
   alias Arke.Boundary.{ArkeManager, GroupManager}
@@ -26,82 +31,6 @@ defmodule ArkeServer.GroupController do
   alias ArkeServer.Openapi.Responses
 
   alias OpenApiSpex.{Operation, Reference}
-
-  # ------- start OPENAPI spec -------
-  def open_api_operation(action) do
-    operation = String.to_existing_atom("#{action}_operation")
-    apply(__MODULE__, operation, [])
-  end
-
-  def struct_operation() do
-    %Operation{
-      tags: ["Group"],
-      summary: "Group struct",
-      description: "Get the struct for the given group",
-      operationId: "ArkeServer.ArkeController.struct",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/group_id"},
-        %Reference{"$ref": "#/components/parameters/arke-project-key"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
-
-  def get_arke_operation() do
-    %Operation{
-      tags: ["Group"],
-      summary: "Arke list",
-      description: "Get all theArke in the given group",
-      operationId: "ArkeServer.ArkeController.get_arke",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/arke-project-key"},
-        %Reference{"$ref": "#/components/parameters/limit"},
-        %Reference{"$ref": "#/components/parameters/offset"},
-        %Reference{"$ref": "#/components/parameters/order"},
-        %Reference{"$ref": "#/components/parameters/filter"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
-
-  def get_unit_operation() do
-    %Operation{
-      tags: ["Group"],
-      summary: "Unit list",
-      description: "Get all the units of all the Arke in the given group",
-      operationId: "ArkeServer.ArkeController.get_unit",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/group_id"},
-        %Reference{"$ref": "#/components/parameters/arke-project-key"},
-        %Reference{"$ref": "#/components/parameters/limit"},
-        %Reference{"$ref": "#/components/parameters/offset"},
-        %Reference{"$ref": "#/components/parameters/order"},
-        %Reference{"$ref": "#/components/parameters/filter"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
-
-  def unit_detail_operation() do
-    %Operation{
-      tags: ["Group"],
-      summary: "Unit detail",
-      description: "Get the detail of the given unit in a given group",
-      operationId: "ArkeServer.ArkeController.unit_detail",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/group_id"},
-        %Reference{"$ref": "#/components/parameters/unit_id"},
-        %Reference{"$ref": "#/components/parameters/arke-project-key"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
-
-  # ------- end OPENAPI spec -------
 
   # get the group struct
   def struct(conn, %{"group_id" => group_id}) do

@@ -17,7 +17,7 @@
 ########################################################################
 defmodule ArkeServer.ErrorHandlers.Auth do
   @moduledoc """
-             """ && false
+             """
 
   alias Arke.Utils.ErrorGenerator, as: Error
   import Plug.Conn
@@ -42,7 +42,7 @@ end
 ########################################################################
 defmodule ArkeServer.ErrorHandlers.SSOAuth do
   @moduledoc """
-             """ && false
+             """
 
   alias Arke.Utils.ErrorGenerator, as: Error
   import Plug.Conn

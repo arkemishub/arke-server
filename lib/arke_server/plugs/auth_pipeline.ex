@@ -19,7 +19,7 @@
 defmodule ArkeServer.Plugs.AuthPipeline do
   @moduledoc """
              Pipeline To ensure that the user is always authenticated and authorized
-             """ && false
+             """
 
   use Guardian.Plug.Pipeline,
     otp_app: :arke_auth,
@@ -34,7 +34,7 @@ end
 defmodule ArkeServer.Plugs.NotAuthPipeline do
   @moduledoc """
              Pipeline for all the non-authorized endpoints
-             """ && false
+             """
   use Guardian.Plug.Pipeline,
     otp_app: :arke_auth,
     module: ArkeAuth.Guardian,
@@ -49,7 +49,7 @@ end
 defmodule ArkeServer.Plugs.SSOAuthPipeline do
   @moduledoc """
              Pipeline to ensure the existence of an arke user from a sso jwt token
-             """ && false
+             """
 
   use Guardian.Plug.Pipeline,
       otp_app: :arke_auth,
@@ -64,7 +64,7 @@ end
 defmodule ArkeServer.Plugs.SSONotAuthPipeline do
   @moduledoc """
              Pipeline for all the non-authorized endpoints
-             """ && false
+             """
   use Guardian.Plug.Pipeline,
       otp_app: :arke_auth,
       module: ArkeAuth.SSOGuardian,

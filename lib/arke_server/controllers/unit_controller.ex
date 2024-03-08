@@ -14,6 +14,11 @@
 
 defmodule ArkeServer.UnitController do
   use ArkeServer, :controller
+
+  # Openapi request definition
+  use ArkeServer.Openapi.Spec, module: ArkeServer.Openapi.UnitControllerSpec
+
+
   alias Arke.{QueryManager, LinkManager, StructManager}
   alias Arke.Boundary.{ArkeManager, ParameterManager}
   alias UnitSerializer
@@ -25,55 +30,9 @@ defmodule ArkeServer.UnitController do
 
   import ArkeServer.ArkeController, only: [data_as_klist: 1]
 
-  # ------- start OPENAPI spec -------
-
-  def open_api_operation(action) do
-    operation = String.to_existing_atom("#{action}_operation")
-    apply(__MODULE__, operation, [])
-  end
-
-  def search_operation() do
-    %Operation{
-      tags: ["Unit"],
-      summary: "Global search",
-      description: "Search between all the units",
-      operationId: "ArkeServer.ArkeController.search",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/arke-project-key"},
-        %Reference{"$ref": "#/components/parameters/limit"},
-        %Reference{"$ref": "#/components/parameters/offset"},
-        %Reference{"$ref": "#/components/parameters/order"},
-        %Reference{"$ref": "#/components/parameters/filter"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
-
-  def update_operation() do
-    %Operation{
-      tags: ["Unit"],
-      summary: "Login",
-      description: "Provide credentials to login to the app",
-      operationId: "ArkeServer.ArkeController.update",
-      parameters: [%Reference{"$ref": "#/components/parameters/arke-project-key"}],
-      requestBody:
-        OpenApiSpex.Operation.request_body(
-          "Parameters to login",
-          "application/json",
-          ArkeServer.Schemas.UserParams,
-          required: true
-        ),
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
-
-  # ------- end OPENAPI spec -------
-
   @doc """
        Search units
-       """ && false
+       """
   def search(conn, %{}) do
     project = conn.assigns[:arke_project]
     offset = Map.get(conn.query_params, "offset", 0)
@@ -94,7 +53,7 @@ defmodule ArkeServer.UnitController do
 
   @doc """
        Update an unit
-       """ && false
+       """
   def update(%Plug.Conn{body_params: params} = conn, %{
         "unit_id" => _unit_id,
         "arke_id" => _arke_id
