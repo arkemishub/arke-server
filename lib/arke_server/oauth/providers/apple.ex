@@ -61,7 +61,6 @@
      case HTTPoison.get("https://appleid.apple.com/auth/keys") do
        {:ok, %{status_code: 200, body: body}} ->
          body = Poison.decode!(body)
-         IO.inspect(body, label: "body123")
 
          case Enum.find(body["keys"], nil, fn key -> key["kid"] == certificate_id end) do
            nil ->
