@@ -108,42 +108,37 @@ defmodule ArkeServer.ArkeController do
        """ 
   def get_all_unit(conn, %{"arke_id" => id}) do
     project = conn.assigns[:arke_project]
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
 
-    case Permission.get_permission(conn, id, :get) do
-      {:ok, permission} ->
-        member = ArkeAuth.Guardian.Plug.current_resource(conn)
+      member = ArkeAuth.Guardian.Plug.current_resource(conn)
 
-        offset = Map.get(conn.query_params, "offset", nil)
-        limit = Map.get(conn.query_params, "limit", nil)
-        order = Map.get(conn.query_params, "order", [])
+      offset = Map.get(conn.query_params, "offset", nil)
+      limit = Map.get(conn.query_params, "limit", nil)
+      order = Map.get(conn.query_params, "order", [])
 
-        # TODO handle query parameter with plugs
-        load_links = Map.get(conn.query_params, "load_links", "false") == "true"
-        load_values = Map.get(conn.query_params, "load_values", "false") == "true"
-        load_files = Map.get(conn.query_params, "load_files", "false") == "true"
-        {count, units} =
-          QueryManager.query(project: project, arke: id)
-          |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-          |> QueryFilters.apply_query_filters(permission.filter)
-          |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
-          |> handle_coordinates_filter(conn)
-          |> QueryOrder.apply_order(order)
-          |> QueryManager.pagination(offset, limit)
+      # TODO handle query parameter with plugs
+      load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+      load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+      load_files = Map.get(conn.query_params, "load_files", "false") == "true"
+      {count, units} =
+        QueryManager.query(project: project, arke: id)
+        |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
+        |> QueryFilters.apply_query_filters(permission.filter)
+        |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
+        |> handle_coordinates_filter(conn)
+        |> QueryOrder.apply_order(order)
+        |> QueryManager.pagination(offset, limit)
 
-        ResponseManager.send_resp(conn, 200, %{
-          count: count,
-          items:
-            StructManager.encode(units,
-              load_links: load_links,
-              load_values: load_values,
-              load_files: load_files,
-              type: :json
-            )
-        })
-
-      {:error, :not_authorized} ->
-        ResponseManager.send_resp(conn, 403, %{})
-    end
+      ResponseManager.send_resp(conn, 200, %{
+        count: count,
+        items:
+          StructManager.encode(units,
+            load_links: load_links,
+            load_values: load_values,
+            load_files: load_files,
+            type: :json
+          )
+      })
   end
 
   defp handle_coordinates_filter(query, conn) do
