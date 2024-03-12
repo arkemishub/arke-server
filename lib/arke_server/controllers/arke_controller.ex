@@ -182,22 +182,16 @@ defmodule ArkeServer.ArkeController do
        """ 
   def call_arke_function(conn, %{"arke_id" => arke_id, "function_name" => function_name}) do
     project = conn.assigns[:arke_project]
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
+    arke =
+      ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
 
-    case Permission.get_permission(conn, arke_id, :get) do
-      {:ok, permission} ->
-        arke =
-          ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
-
-        case ArkeManager.call_func(arke, String.to_atom(function_name), [arke]) do
-          {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
-          {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
-          {:ok, content, status} -> ResponseManager.send_resp(conn, status, %{content: content})
-          {:ok, content, status, messages} -> ResponseManager.send_resp(conn, status, %{content: content}, messages)
-          res -> ResponseManager.send_resp(conn, 200, %{content: res})
-        end
-
-      {:error, :not_authorized} ->
-        ResponseManager.send_resp(conn, 403, %{})
+    case ArkeManager.call_func(arke, String.to_atom(function_name), [arke]) do
+      {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
+      {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
+      {:ok, content, status} -> ResponseManager.send_resp(conn, status, %{content: content})
+      {:ok, content, status, messages} -> ResponseManager.send_resp(conn, status, %{content: content}, messages)
+      res -> ResponseManager.send_resp(conn, 200, %{content: res})
     end
   end
 
@@ -210,35 +204,31 @@ defmodule ArkeServer.ArkeController do
         "function_name" => function_name
       }) do
     project = conn.assigns[:arke_project]
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
 
-    case Permission.get_permission(conn, arke_id, :get) do
-      {:ok, permission} ->
-        arke =
-          ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
+    arke =
+      ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
 
-        unit =
-          QueryManager.query(project: project, arke: arke)
-          |> QueryManager.where(id: unit_id)
-          |> QueryFilters.apply_query_filters(permission.filter)
-          |> QueryManager.one()
+    unit =
+      QueryManager.query(project: project, arke: arke)
+      |> QueryManager.where(id: unit_id)
+      |> QueryFilters.apply_query_filters(permission.filter)
+      |> QueryManager.one()
 
-        case unit do
-          %Arke.Core.Unit{} = unit ->
-            case ArkeManager.call_func(arke, String.to_atom(function_name), [arke, unit]) do
-              {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
-              {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
-              {:ok, content, status} -> ResponseManager.send_resp(conn, status, %{content: content})
-              {:ok, content, status, messages} -> ResponseManager.send_resp(conn, status, %{content: content}, messages)
-              res -> ResponseManager.send_resp(conn, 200, %{content: res})
-            end
-
-          nil ->
-            ResponseManager.send_resp(conn, 404, %{})
+    case unit do
+      %Arke.Core.Unit{} = unit ->
+        case ArkeManager.call_func(arke, String.to_atom(function_name), [arke, unit]) do
+          {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
+          {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
+          {:ok, content, status} -> ResponseManager.send_resp(conn, status, %{content: content})
+          {:ok, content, status, messages} -> ResponseManager.send_resp(conn, status, %{content: content}, messages)
+          res -> ResponseManager.send_resp(conn, 200, %{content: res})
         end
 
-      {:error, :not_authorized} ->
-        ResponseManager.send_resp(conn, 403, %{})
+      nil ->
+        ResponseManager.send_resp(conn, 404, %{})
     end
+
   end
 
   @doc """

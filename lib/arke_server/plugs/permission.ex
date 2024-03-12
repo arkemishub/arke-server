@@ -72,11 +72,13 @@ defmodule ArkeServer.Plugs.Permission do
   defp get_permission_filter(conn, %{filter: nil} = permission), do: permission
 
   defp get_permission_filter(conn,permission,member \\nil) do
-    filter = String.replace(permission.filter, "{{arke_member}}", to_string(member.id))
+    filter = get_member_filter(permission.filter,member)
     case QueryFilters.get_from_string(conn, filter) do
       {:ok, data} -> Map.put(permission, :filter, data)
       {:error, _msg} -> Map.put(permission, :filter, nil)
     end
   end
+  defp get_member_filter(filter,member) when is_binary(filter) and not is_nil(member), do: String.replace(filter, "{{arke_member}}", to_string(member.id))
+  defp get_member_filter(filter,_member), do: filter
 
 end
