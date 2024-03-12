@@ -50,7 +50,6 @@ defmodule ArkeServer.Utils.OneSignal do
       {"Authorization", "Basic #{api_token}"}
     ]
     body = Jason.encode!(body)
-    IO.inspect(body)
     case HTTPoison.request(method, url, body, headers, []) do
       {:error, error} -> {:error, error}
       {:ok, response} ->

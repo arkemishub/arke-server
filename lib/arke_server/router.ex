@@ -53,7 +53,7 @@ defmodule ArkeServer.Router do
 
   pipeline :auth_api do
     plug(:accepts, ["json", "multipart"])
-    plug(ArkeServer.Plugs.AuthPipeline)
+    plug(ArkeServer.Plugs.Permission)
   end
 
   pipeline :project do
@@ -91,8 +91,6 @@ defmodule ArkeServer.Router do
       post("/reset_password", AuthController, :reset_password)
       post("/reset_password/:token", AuthController, :reset_password)
 
-      #todo: remove group_id
-      get("/group/:group_id/:arke",GroupController, :get_arke)
       scope "/signin/:provider" do
         pipe_through(:oauth)
         post("/", OAuthController, :handle_client_login)
@@ -112,17 +110,14 @@ defmodule ArkeServer.Router do
 
       pipe_through(:auth_api)
       post("/verify", AuthController, :verify)
+      post("/change_password", AuthController, :change_password)
+
     end
-
-    # ↑ Not auth endpoint (no access token)
-    pipe_through([:auth_api])
-    # ↓ Auth endpoint (no access token)
-
-    post("/auth/change_password", AuthController, :change_password)
 
     # -------- PROJECT --------
 
     scope "/arke_project" do
+      pipe_through([:auth_api])
       get("/unit", ProjectController, :get_all_unit)
       get("/unit/:unit_id", ProjectController, :get_unit)
       put("/unit/:unit_id", ProjectController, :update)
@@ -131,7 +126,9 @@ defmodule ArkeServer.Router do
     end
 
     # ↑ Do not need arke-project-key
-    pipe_through([:project])
+    # ↑ Not auth endpoint (no access token)
+    pipe_through([:project,:auth_api])
+    # ↓ Auth endpoint (access token)
     # ↓ Must have arke-project-key
 
     # GROUP

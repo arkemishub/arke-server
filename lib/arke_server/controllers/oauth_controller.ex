@@ -149,7 +149,7 @@ defmodule ArkeServer.OAuthController do
          end
 
     else
-      {:error, reason} ->IO.inspect(reason,label: "qualcosa rott")
+      {:error, reason} ->
         {:error, reason}
     end
   end
