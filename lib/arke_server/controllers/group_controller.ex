@@ -63,27 +63,49 @@ defmodule ArkeServer.GroupController do
   ## get all the units of the arke inside the given group
   def get_unit(conn, %{"group_id" => group_id}) do
     project = conn.assigns[:arke_project]
+    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
     offset = Map.get(conn.query_params, "offset", nil)
     limit = Map.get(conn.query_params, "limit", nil)
     order = Map.get(conn.query_params, "order", [])
+
+    load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+    load_files = Map.get(conn.query_params, "load_files", "false") == "true"
 
     {count, units} =
       QueryManager.query(project: project)
       |> QueryManager.filter(:group_id, :eq, group_id, false)
       |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
+      |> QueryFilters.apply_query_filters(permission.filter)
+      |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
       |> QueryOrder.apply_order(order)
       |> QueryManager.pagination(offset, limit)
 
-    ResponseManager.send_resp(conn, 200, %{
+      ResponseManager.send_resp(conn, 200, %{
       count: count,
-      items: StructManager.encode(units, type: :json)
+      items: StructManager.encode(units, load_links: load_links, load_values: load_values, load_files: load_files,type: :json)
     })
   end
 
   # get the detail of the unit in the given group id based on the unit_id
   def unit_detail(conn, %{"group_id" => group_id, "unit_id" => unit_id}) do
     project = conn.assigns[:arke_project]
-    unit = QueryManager.get_by(project: project, group_id: group_id, id: unit_id)
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
+    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+
+    load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+    load_files = Map.get(conn.query_params, "load_files", "false") == "true"
+
+    unit = QueryManager.query(project: project)
+    |> QueryManager.filter(:group_id, :eq, group_id, false)
+    |> QueryManager.filter(:id, :eq, unit_id, false)
+    |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
+    |> QueryFilters.apply_query_filters(permission.filter)
+    |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
+    |> QueryManager.one()
+
     ResponseManager.send_resp(conn, 200, %{content: StructManager.encode(unit, type: :json)})
   end
 end

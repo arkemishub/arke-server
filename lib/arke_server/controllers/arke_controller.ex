@@ -46,6 +46,7 @@ defmodule ArkeServer.ArkeController do
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
     load_files = Map.get(conn.query_params, "load_files", "false") == "true"
 
+
     ResponseManager.send_resp(conn, 200, %{
       content:
         StructManager.encode(conn.assigns[:unit],

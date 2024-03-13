@@ -25,10 +25,9 @@ defmodule ArkeServer.Plugs.Permission do
 
   def call(%Plug.Conn{path_params: %{"group_id"=> group_id}} = conn, _default) do
     check_permission(conn,group_id)
-    conn
   end
   def call(%Plug.Conn{path_params: %{"parameter_id"=> parameter_id}} = conn, _default) do
-    check_permission(conn,parameter_id)
+    #check_permission(conn,parameter_id)
     conn
   end
   # handle arke_project and unit global search
@@ -38,8 +37,8 @@ defmodule ArkeServer.Plugs.Permission do
    if is_nil(arke_id) do
     conn
     else
-      check_permission(conn,arke_id)
-      conn
+      new_conn = if arke_id == "arke_project", do: assign(conn,:arke_project,"arke_system"), else: conn
+      check_permission(new_conn,arke_id)
     end
    end
 
