@@ -55,7 +55,7 @@ defmodule ArkeServer.Plugs.Permission do
     with %Plug.Conn{halted: false}=auth_conn <- ArkeServer.Plugs.AuthPipeline.call(conn,[]),
     {:ok,data} <- Permission.get_member_permission(ArkeAuth.Guardian.Plug.current_resource(auth_conn),arke_id, project),
          true <- is_permitted?(data,action) do
-      assign(conn,:permission_filter,get_permission_filter(conn, data,ArkeAuth.Guardian.Plug.current_resource(auth_conn)))
+      assign(auth_conn,:permission_filter,get_permission_filter(auth_conn, data,ArkeAuth.Guardian.Plug.current_resource(auth_conn)))
     else
       %Plug.Conn{halted: true}=not_auth_conn -> not_auth_conn
       _ ->  {:error, msg} = Error.create(:auth, "unauthorized")
