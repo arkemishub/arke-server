@@ -4,8 +4,6 @@ defmodule ArkeServer.Mailer do
     quote do
       use Swoosh.Mailer, otp_app: :arke_server
       import Swoosh.Email
-      Module.register_attribute(__MODULE__, :mailer_conf, accumulate: false, persist: true)
-      @mailer_conf Application.get_env(:arke_server,__MODULE__)
 
       def signin(conn,member,opts), do: {:ok,opts}
       def signup(conn,params,opts), do: {:ok,opts}
@@ -41,7 +39,7 @@ defmodule ArkeServer.Mailer do
       defp get_sender(opts) do
         case Map.get(opts, :from, nil) do
           nil ->
-            case @mailer_conf[:default_sender] do
+            case Application.get_env(:arke_server,__MODULE__)[:default_sender] do
               nil -> raise "missing `from:` value and `default_sender` is not set"
               default_sender -> default_sender
             end
