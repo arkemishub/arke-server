@@ -58,8 +58,8 @@ defmodule ArkeServer.Plugs.Permission do
       assign(auth_conn,:permission_filter,get_permission_filter(auth_conn, data,ArkeAuth.Guardian.Plug.current_resource(auth_conn)))
     else
       %Plug.Conn{halted: true}=not_auth_conn -> not_auth_conn
-      _ ->  {:error, msg} = Error.create(:auth, "unauthorized")
-        ArkeServer.ResponseManager.send_resp(conn, 401, nil, msg)
+      _ ->  {:error, msg} = Error.create(:auth, "forbidden")
+        ArkeServer.ResponseManager.send_resp(conn, 403, nil, msg)
         |> Plug.Conn.halt()
     end
     end
