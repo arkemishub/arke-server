@@ -63,8 +63,6 @@ defmodule ArkeServer.UnitController do
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
 
-    params = Map.put(params, "runtime_data", %{conn: conn})
-
     QueryManager.update(conn.assigns[:unit], data_as_klist(params))
     |> case do
       {:ok, unit} ->

@@ -59,10 +59,7 @@ defmodule ArkeServer.Plugs.GetUnit do
     |> QueryManager.where(id: unit_id)
     |> QueryManager.one
 
-    case unit do
-      nil -> not_found(conn)
-      unit -> unit
-    end
+    unit
   end
 
   def single_unit(
