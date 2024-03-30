@@ -57,6 +57,7 @@ defmodule ArkeServer.Router do
     scope "/auth" do
       pipe_through([:project])
 
+      get("/signin", AuthController, :signin)
       post("/signin", AuthController, :signin)
       post("/:arke_id/signup", AuthController, :signup)
       post("/recover_password", AuthController, :recover_password)

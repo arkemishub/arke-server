@@ -311,6 +311,54 @@ defmodule ArkeServer.AuthController do
   @doc """
   Signin a user
   """
+
+  def signin(conn, %{"username" => username, "password" => password} = params) do
+    project = get_project(conn.assigns[:arke_project])
+    auth_mode = System.get_env("AUTH_MODE", "default")
+
+    Auth.validate_credentials(username, password, project)
+    |> case do
+         {:ok, member, access_token, refresh_token} ->
+           case member.arke_id do
+             :super_admin ->
+               handle_signin(conn, username, password, project)
+
+             _ ->
+               handle_signin_mode(conn, params, project, auth_mode)
+           end
+
+         {:error, messages} ->
+           ResponseManager.send_resp(conn, 401, messages)
+       end
+  end
+
+  #### GET ######
+
+  # TODO improve it in arke_auth
+  def signin(conn, %{"token" => token} = params) do
+    project = get_project(conn.assigns[:arke_project])
+
+    case QueryManager.get_by(project: project, group: :arke_auth_member, auth_token: token) do
+      nil -> ResponseManager.send_resp(conn, 401, "Unauthorized")
+      member ->
+        with {:ok, access_token, _claims} <- ArkeAuth.Guardian.encode_and_sign(member, %{}),
+             {:ok, refresh_token, _claims} <- ArkeAuth.Guardian.encode_and_sign(member, %{}, token_type: "refresh")
+          do
+          content =
+            Map.merge(Arke.StructManager.encode(member, type: :json), %{
+              access_token: access_token,
+              refresh_token: refresh_token
+            })
+          QueryManager.update(member, auth_token: nil)
+          ResponseManager.send_resp(conn, 200, %{content: content})
+        else {:error, type} ->
+          ResponseManager.send_resp(conn, 401, "Unauthorized")
+        end
+
+    end
+  end
+
+  #### POST ######
   def signin(conn, %{"username" => username, "password" => password} = params) do
     project = get_project(conn.assigns[:arke_project])
     auth_mode = System.get_env("AUTH_MODE", "default")
