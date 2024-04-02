@@ -513,6 +513,11 @@ defmodule ArkeServer.AuthController do
             refresh_token: refresh_token
           })
 
+          datetime_now = NaiveDateTime.utc_now()
+        update_data = [last_access_time: datetime_now]
+        update_data = if Map.get(member.data, :first_access_time, nil) == nil, do: Keyword.put(update_data, :first_access_time, datetime_now), else: update_data
+        QueryManager.update(member, update_data)
+
         ResponseManager.send_resp(conn, 200, %{content: content})
 
       {:error, error} ->
