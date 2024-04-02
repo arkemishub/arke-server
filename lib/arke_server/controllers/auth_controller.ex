@@ -312,26 +312,6 @@ defmodule ArkeServer.AuthController do
   Signin a user
   """
 
-  def signin(conn, %{"username" => username, "password" => password} = params) do
-    project = get_project(conn.assigns[:arke_project])
-    auth_mode = System.get_env("AUTH_MODE", "default")
-
-    Auth.validate_credentials(username, password, project)
-    |> case do
-         {:ok, member, access_token, refresh_token} ->
-           case member.arke_id do
-             :super_admin ->
-               handle_signin(conn, username, password, project)
-
-             _ ->
-               handle_signin_mode(conn, params, project, auth_mode)
-           end
-
-         {:error, messages} ->
-           ResponseManager.send_resp(conn, 401, messages)
-       end
-  end
-
   #### GET ######
 
   # TODO improve it in arke_auth
@@ -349,7 +329,7 @@ defmodule ArkeServer.AuthController do
               access_token: access_token,
               refresh_token: refresh_token
             })
-          QueryManager.update(member, auth_token: nil)
+          update_member_access_time(member, auth_token: nil)
           ResponseManager.send_resp(conn, 200, %{content: content})
         else {:error, type} ->
           ResponseManager.send_resp(conn, 401, "Unauthorized")
@@ -513,16 +493,21 @@ defmodule ArkeServer.AuthController do
             refresh_token: refresh_token
           })
 
-          datetime_now = NaiveDateTime.utc_now()
-        update_data = [last_access_time: datetime_now]
-        update_data = if Map.get(member.data, :first_access_time, nil) == nil, do: Keyword.put(update_data, :first_access_time, datetime_now), else: update_data
-        QueryManager.update(member, update_data)
+        update_member_access_time(member)
 
         ResponseManager.send_resp(conn, 200, %{content: content})
 
       {:error, error} ->
         ResponseManager.send_resp(conn, 401, nil, error)
     end
+  end
+
+  defp update_member_access_time(member, args \\ []) do
+    datetime_now = NaiveDateTime.utc_now()
+    update_data = [last_access_time: datetime_now]
+    update_data = if Map.get(member.data, :first_access_time, nil) == nil, do: Keyword.put(update_data, :first_access_time, datetime_now), else: update_data
+    update_data = Keyword.merge(update_data, args)
+    QueryManager.update(member, update_data)
   end
 
   @doc """
