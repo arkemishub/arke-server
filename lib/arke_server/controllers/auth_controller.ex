@@ -147,33 +147,47 @@ defmodule ArkeServer.AuthController do
   defp handle_signup(
          conn,
          arke,
-         %{"arke_system_user" => %{"username" => username, "password" => password}} = params,
+         params,
          project
        ) do
+
     {_, params} = Map.pop(params, "otp")
 
-    QueryManager.create(project, arke, data_as_klist(params))
-    |> case do
-      {:ok, member} ->
-        Auth.validate_credentials(username, password, project)
-        |> case do
-          {:ok, member, access_token, refresh_token} ->
-            content =
-              Map.merge(Arke.StructManager.encode(member, type: :json), %{
-                access_token: access_token,
-                refresh_token: refresh_token
-              })
+    with {:ok, params, arke_system_user} <- check_user_on_signup(params, Map.get(params, "arke_system_user", nil)),
+         {:ok, member} <- QueryManager.create(project, arke, data_as_klist(params))
+          do
+            username = Map.get(arke_system_user, "username", nil)
+            password = Map.get(arke_system_user, "password", nil)
+            Auth.validate_credentials(username, password, project)
+            |> case do
+                 {:ok, member, access_token, refresh_token} ->
+                   content =
+                     Map.merge(Arke.StructManager.encode(member, type: :json), %{
+                       access_token: access_token,
+                       refresh_token: refresh_token
+                     })
 
-            ResponseManager.send_resp(conn, 200, %{content: content})
+                   ResponseManager.send_resp(conn, 200, %{content: content})
 
-          {:error, error} ->
-            ResponseManager.send_resp(conn, 401, nil, error)
-        end
+                 {:error, error} ->
+                   ResponseManager.send_resp(conn, 401, nil, error)
+               end
+          else
+            ({:error, errors} -> ResponseManager.send_resp(conn, 400, errors))
+          end
 
-      {:error, error} ->
-        ResponseManager.send_resp(conn, 400, nil, error)
     end
 
+    defp check_user_on_signup(params, arke_system_user) when is_nil(arke_system_user) or arke_system_user == "" or arke_system_user == %{}, do: {:error, "arke_system_user is required"}
+    defp check_user_on_signup(params, arke_system_user) when is_binary(arke_system_user) do
+    case Jason.decode(arke_system_user) do
+      {:ok, u} ->
+        params = Map.merge(params, %{"arke_system_user" => u})
+        {:ok, params, u}
+      {:error, _} -> {:error, "arke_system_user is not a valid json"}
+    end
+    end
+    defp check_user_on_signup(params, arke_system_user), do: {:ok, params, arke_system_user}
     #    Auth.validate_credentials(username, password, project)
     #    |> case do
     #         {:ok, member, access_token, refresh_token} ->
@@ -188,7 +202,6 @@ defmodule ArkeServer.AuthController do
     #         {:error, error} ->
     #           ResponseManager.send_resp(conn, 401, nil, error)
     #       end
-  end
 
   #  @doc """
   #  Register a new user
