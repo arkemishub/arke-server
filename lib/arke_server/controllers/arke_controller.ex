@@ -108,38 +108,51 @@ defmodule ArkeServer.ArkeController do
        Get units
        """ 
   def get_all_unit(conn, %{"arke_id" => id}) do
+    # TODO handle query parameter with plugs
+    load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+    load_files = Map.get(conn.query_params, "load_files", "false") == "true"
+    offset = Map.get(conn.query_params, "offset", nil)
+    limit = Map.get(conn.query_params, "limit", nil)
+    order = Map.get(conn.query_params, "order", [])
+
+    {count, units} = handel_get_all_unit_query(conn, id)
+      |> QueryOrder.apply_order(order)
+      |> QueryManager.pagination(offset, limit)
+
+    ResponseManager.send_resp(conn, 200, %{
+      count: count,
+      items:
+        StructManager.encode(units,
+          load_links: load_links,
+          load_values: load_values,
+          load_files: load_files,
+          type: :json
+        )
+    })
+  end
+
+  defp handel_get_all_unit_query(conn, arke_id) do
     project = conn.assigns[:arke_project]
     permission = conn.assigns[:permission_filter] || %{filter: nil}
 
-      member = ArkeAuth.Guardian.Plug.current_resource(conn)
+    member = ArkeAuth.Guardian.Plug.current_resource(conn)
 
-      offset = Map.get(conn.query_params, "offset", nil)
-      limit = Map.get(conn.query_params, "limit", nil)
-      order = Map.get(conn.query_params, "order", [])
+    QueryManager.query(project: project, arke: arke_id)
+    |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
+    |> QueryFilters.apply_query_filters(permission.filter)
+    |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
+    |> handle_coordinates_filter(conn)
+  end
 
-      # TODO handle query parameter with plugs
-      load_links = Map.get(conn.query_params, "load_links", "false") == "true"
-      load_values = Map.get(conn.query_params, "load_values", "false") == "true"
-      load_files = Map.get(conn.query_params, "load_files", "false") == "true"
-      {count, units} =
-        QueryManager.query(project: project, arke: id)
-        |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-        |> QueryFilters.apply_query_filters(permission.filter)
-        |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
-        |> handle_coordinates_filter(conn)
-        |> QueryOrder.apply_order(order)
-        |> QueryManager.pagination(offset, limit)
+  @doc """
+  Count units
+  """
+  def get_all_unit_count(conn, %{"arke_id" => id}) do
+    count = handel_get_all_unit_query(conn, id)
+            |> QueryManager.count()
 
-      ResponseManager.send_resp(conn, 200, %{
-        count: count,
-        items:
-          StructManager.encode(units,
-            load_links: load_links,
-            load_values: load_values,
-            load_files: load_files,
-            type: :json
-          )
-      })
+    ResponseManager.send_resp(conn, 200, count)
   end
 
   defp handle_coordinates_filter(query, conn) do

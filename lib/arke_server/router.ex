@@ -194,6 +194,7 @@ defmodule ArkeServer.Router do
     scope "/:arke_id" do
       get("/struct", StructController, :get_arke_struct)
       get("/group", ArkeController, :get_groups)
+      get("/count", ArkeController, :get_all_unit_count)
 
       # UNIT
       scope "/unit" do
@@ -203,6 +204,7 @@ defmodule ArkeServer.Router do
         # TOPOLOGY
         scope "/:arke_unit_id" do
           get("/link/:direction", TopologyController, :get_node)
+          get("/link/:direction/count", TopologyController, :get_node_count)
           get("/struct", StructController, :get_unit_struct)
         end
       end
