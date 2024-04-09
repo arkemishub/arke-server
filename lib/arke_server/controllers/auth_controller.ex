@@ -64,13 +64,12 @@ defmodule ArkeServer.AuthController do
   defp handle_signup_mode(
          conn,
          arke,
-         %{"username"=>_username, "password" => _pwd}=params,
+         params,
          project,
          "default"
        ),
        do: handle_signup(conn, arke, params, project)
 
-  defp handle_signup_mode(conn, _, _, _project, "default"), do: params_required(conn, ["username","password"])
   defp handle_signup_mode(
          conn,
          _arke,
@@ -155,7 +154,7 @@ defmodule ArkeServer.AuthController do
                        access_token: access_token,
                        refresh_token: refresh_token
                      })
-
+                   mailer_module().signup(conn,params, member: member,response_body: content)
                    ResponseManager.send_resp(conn, 200, %{content: content})
 
                  {:error, error} ->
@@ -674,7 +673,7 @@ defmodule ArkeServer.AuthController do
   end
 
   defp params_required(conn,param) do
-  param_msg = Enum.map(param,fn p -> "`#{String.downcase(p)}`" end) |> Enum.join(",")
+  param_msg = Enum.map(param,fn p -> "#{String.downcase(p)}" end) |> Enum.join(",")
   {:error,msg} = Error.create(:auth, "#{param_msg} required")
   ResponseManager.send_resp(conn, 400, msg)
   end
