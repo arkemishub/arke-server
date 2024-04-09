@@ -51,8 +51,8 @@ defmodule ArkeServer.OAuthController do
     project = conn.assigns[:arke_project]
     case init_oauth_flow(project,auth, provider) do
       {:ok, body} -> ResponseManager.send_resp(conn, 200, %{content: body})
-      {:error, msg} ->
-        ResponseManager.send_resp(conn, 400, msg)
+      {:error,[%{context: "auth", message: "unauthorized"}]=msg} -> ResponseManager.send_resp(conn, 401, msg)
+      {:error, msg} -> ResponseManager.send_resp(conn, 400, msg)
     end
   end
 
@@ -82,19 +82,23 @@ defmodule ArkeServer.OAuthController do
     # check if one of the oauth link has the arke_id equal to the given provider
     with true <- member_id in (GroupManager.get_arke_list(enable_sso_group) |> Enum.map(fn ak -> to_string(ak.id)end)),
          [_data] = link_list <- get_link(user,:child),
-         %Unit{}=unit <- Enum.find(link_list, fn link_unit -> link_unit.arke_id == provider_arke_id end) do
+         %Unit{}=_unit <- Enum.find(link_list, fn link_unit -> link_unit.arke_id == provider_arke_id end) do
       case check_member(project,user) do
+        # member does not exists so create one
         {:ok,nil} ->
         case create_member(project,user,params,member_id) do
           {:ok,member} ->
-            {:ok, resource_member, access_token, refresh_token} = Auth.create_tokens(member,false)
+            {:ok, resource_member, access_token, refresh_token} = Auth.create_tokens(member,"default")
             content = create_response_body(resource_member,access_token,refresh_token,false)
             ResponseManager.send_resp(conn, 200, content)
           err -> ResponseManager.send_resp(conn, 400, err)
         end
+        # member exists and it is active
         {:ok, resource_member, access_token, refresh_token} ->
           content = create_response_body(resource_member,access_token,refresh_token,false)
           ResponseManager.send_resp(conn, 200, content)
+        {:error, reason} ->
+          {:error, reason}
       end
       else nil -> # there are no units associated with that provider or the provider does not exist
             # in any of the unit sso associated with the user
@@ -139,15 +143,16 @@ defmodule ArkeServer.OAuthController do
          {:ok, user} <- check_oauth(auth_info) do
          case check_member(project,user) do
            #if member does not exists creat a SSO token
-            {:ok,nil} -> {:ok, user, access_token, refresh_token} = Auth.create_tokens(user,true)
+            {:ok,nil} -> {:ok, user, access_token, refresh_token} = Auth.create_tokens(user,"sso")
                 content = create_response_body(user,access_token,refresh_token,true)
                 {:ok, content}
-                # if exists authenticate the user
+                # if exists and is active authenticate the user
             {:ok, resource_member, access_token, refresh_token} ->
               content = create_response_body(resource_member,access_token,refresh_token,false)
               {:ok, content}
+           {:error, reason} ->
+             {:error, reason}
          end
-
     else
       {:error, reason} ->
         {:error, reason}
@@ -279,9 +284,10 @@ defmodule ArkeServer.OAuthController do
   end
 
   defp check_member(project,user) do
-  case QueryManager.get_by(project: project, group_id: "arke_auth_member", arke_system_user: user.id ) do
-  nil -> {:ok,nil}
-  member -> Auth.create_tokens(Auth.format_member(member),false)
-  end
+    case Auth.get_project_member(project,user) do
+      {:ok , member} -> Auth.create_tokens(Auth.format_member(member),"default")
+      {:error, [%{context: "auth", message: "member not exists"}]} -> {:ok,nil} # if not exists return {:ok,nil}
+      {:error, _msg} ->  Error.create(:auth, "unauthorized")
+    end
   end
 end
