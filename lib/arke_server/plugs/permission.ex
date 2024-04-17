@@ -52,17 +52,29 @@ defmodule ArkeServer.Plugs.Permission do
           true <- is_permitted?(data,action) do
         assign(conn,:permission_filter,get_permission_filter(conn, data))
     else _ ->
-    with %Plug.Conn{halted: false}=auth_conn <- ArkeServer.Plugs.AuthPipeline.call(conn,[]),
+    auth_conn = get_auth_conn(conn)
+    with %Plug.Conn{halted: false} <- auth_conn,
     {:ok,data} <- Permission.get_member_permission(ArkeAuth.Guardian.Plug.current_resource(auth_conn),arke_id, project),
          true <- is_permitted?(data,action) do
       assign(auth_conn,:permission_filter,get_permission_filter(auth_conn, data,ArkeAuth.Guardian.Plug.current_resource(auth_conn)))
     else
-      %Plug.Conn{halted: true}=not_auth_conn -> not_auth_conn
-      _ ->  {:error, msg} = Error.create(:auth, "forbidden")
-        ArkeServer.ResponseManager.send_resp(conn, 403, nil, msg)
-        |> Plug.Conn.halt()
+      %Plug.Conn{halted: true}=auth_conn -> auth_conn
+      _ ->
+        member = ArkeAuth.Guardian.Plug.current_resource(auth_conn) || %{data: %{}}
+        case Map.get(member.data,:subscription_active) do
+          false -> halt_conn(conn,"payment required",402)
+          _ -> halt_conn(conn,"forbidden",403)
+        end
     end
     end
+  end
+
+  defp get_auth_conn(conn), do: ArkeServer.Plugs.AuthPipeline.call(conn,[])
+
+  defp halt_conn(conn,message,status) do
+    {:error, msg} = Error.create(:auth, message)
+    ArkeServer.ResponseManager.send_resp(conn, status, nil, msg)
+    |> Plug.Conn.halt()
   end
 
   defp is_permitted?(permission,action), do: Map.get(permission, action, false)
