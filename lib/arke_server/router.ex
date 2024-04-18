@@ -80,6 +80,10 @@ defmodule ArkeServer.Router do
 
   scope "/lib", ArkeServer do
     # -------- AUTH --------
+
+    scope "/health"do
+      get("ready",HealthController,:ready)
+    end
     pipe_through([:openapi])
 
     scope "/auth" do
