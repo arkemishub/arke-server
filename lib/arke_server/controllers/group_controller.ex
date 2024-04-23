@@ -43,6 +43,9 @@ defmodule ArkeServer.GroupController do
       |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
 
     case GroupManager.call_func(group, String.to_atom(function_name), [group]) do
+      {:file, file, filename} ->
+        send_download(conn, {:binary, file}, filename: filename)
+
       {:error, error, status} ->
         ResponseManager.send_resp(conn, status, nil, error)
 

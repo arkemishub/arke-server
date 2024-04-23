@@ -14,8 +14,8 @@
 
 defmodule ArkeServer.ArkeController do
   @moduledoc """
-             Documentation for  `ArkeServer.ArkeController`.
-             """
+  Documentation for  `ArkeServer.ArkeController`.
+  """
 
   use ArkeServer, :controller
 
@@ -32,20 +32,18 @@ defmodule ArkeServer.ArkeController do
 
   alias OpenApiSpex.{Operation, Reference}
 
-
   def data_as_klist(data) do
     Enum.map(data, fn {key, value} -> {String.to_existing_atom(key), value} end)
   end
 
   @doc """
-       It returns a unit
-       """
+  It returns a unit
+  """
   def get_unit(conn, %{"unit_id" => _unit_id}) do
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
     load_files = Map.get(conn.query_params, "load_files", "false") == "true"
-
 
     ResponseManager.send_resp(conn, 200, %{
       content:
@@ -59,8 +57,8 @@ defmodule ArkeServer.ArkeController do
   end
 
   @doc """
-       Create a new unit
-       """
+  Create a new unit
+  """
   def create(%Plug.Conn{body_params: params} = conn, %{"arke_id" => id}) do
     # all arkes struct and gen server are on :arke_system so it won't be changed to project
     project = conn.assigns[:arke_project]
@@ -92,8 +90,8 @@ defmodule ArkeServer.ArkeController do
 
   # delete
   @doc """
-       Delete a unit
-       """
+  Delete a unit
+  """
   def delete(conn, %{"unit_id" => _unit_id, "arke_id" => _arke_id}) do
     project = conn.assigns[:arke_project]
 
@@ -105,8 +103,8 @@ defmodule ArkeServer.ArkeController do
   end
 
   @doc """
-       Get units
-       """
+  Get units
+  """
   def get_all_unit(conn, %{"arke_id" => id}) do
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
@@ -116,7 +114,8 @@ defmodule ArkeServer.ArkeController do
     limit = Map.get(conn.query_params, "limit", nil)
     order = Map.get(conn.query_params, "order", [])
 
-    {count, units} = handle_get_all_unit_query(conn, id)
+    {count, units} =
+      handle_get_all_unit_query(conn, id)
       |> QueryOrder.apply_order(order)
       |> QueryManager.pagination(offset, limit)
 
@@ -149,22 +148,26 @@ defmodule ArkeServer.ArkeController do
   Count units
   """
   def get_all_unit_count(conn, %{"arke_id" => id}) do
-    count = handle_get_all_unit_query(conn, id)
-            |> QueryManager.count()
+    count =
+      handle_get_all_unit_query(conn, id)
+      |> QueryManager.count()
 
     ResponseManager.send_resp(conn, 200, count)
   end
 
   defp handle_coordinates_filter(query, conn) do
-
     radius = parse_coordinate(Map.get(conn.query_params, "radius", 30))
     latitude = parse_coordinate(Map.get(conn.query_params, "latitude", nil))
     longitude = parse_coordinate(Map.get(conn.query_params, "longitude", nil))
 
     case latitude == nil or longitude == nil do
-      true -> query
+      true ->
+        query
+
       false ->
-        {lat_nord, lat_sud, lon_est, lon_ovest} = calculate_coordinates(latitude, longitude, radius)
+        {lat_nord, lat_sud, lon_est, lon_ovest} =
+          calculate_coordinates(latitude, longitude, radius)
+
         query
         |> QueryManager.where(latitude__gte: lat_sud, latitude__lte: lat_nord)
         |> QueryManager.where(longitude__gte: lon_est, latitude__lte: lon_ovest)
@@ -175,7 +178,6 @@ defmodule ArkeServer.ArkeController do
   defp parse_coordinate(c), do: c
 
   defp calculate_coordinates(latitude, longitude, radius) do
-
     latitude_to_km = 110.574
     longitude_to_km = 111.32
     radius = radius
@@ -192,26 +194,39 @@ defmodule ArkeServer.ArkeController do
   end
 
   @doc """
-       Call Arke function
-       """
+  Call Arke function
+  """
   def call_arke_function(conn, %{"arke_id" => arke_id, "function_name" => function_name}) do
     project = conn.assigns[:arke_project]
     permission = conn.assigns[:permission_filter] || %{filter: nil}
+
     arke =
       ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
 
     case ArkeManager.call_func(arke, String.to_atom(function_name), [arke]) do
-      {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
-      {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
-      {:ok, content, status} -> ResponseManager.send_resp(conn, status, %{content: content})
-      {:ok, content, status, messages} -> ResponseManager.send_resp(conn, status, %{content: content}, messages)
-      res -> ResponseManager.send_resp(conn, 200, %{content: res})
+      {:file, file, filename} ->
+        send_download(conn, {:binary, file}, filename: filename)
+
+      {:error, error, status} ->
+        ResponseManager.send_resp(conn, status, nil, error)
+
+      {:error, error} ->
+        ResponseManager.send_resp(conn, 404, nil, error)
+
+      {:ok, content, status} ->
+        ResponseManager.send_resp(conn, status, %{content: content})
+
+      {:ok, content, status, messages} ->
+        ResponseManager.send_resp(conn, status, %{content: content}, messages)
+
+      res ->
+        ResponseManager.send_resp(conn, 200, %{content: res})
     end
   end
 
   @doc """
-       Call Unit function
-       """
+  Call Unit function
+  """
   def call_unit_function(conn, %{
         "arke_id" => arke_id,
         "unit_id" => unit_id,
@@ -232,22 +247,33 @@ defmodule ArkeServer.ArkeController do
     case unit do
       %Arke.Core.Unit{} = unit ->
         case ArkeManager.call_func(arke, String.to_atom(function_name), [arke, unit]) do
-          {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
-          {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
-          {:ok, content, status} -> ResponseManager.send_resp(conn, status, %{content: content})
-          {:ok, content, status, messages} -> ResponseManager.send_resp(conn, status, %{content: content}, messages)
-          res -> ResponseManager.send_resp(conn, 200, %{content: res})
+          {:file, file, filename} ->
+            send_download(conn, {:binary, file}, filename: filename)
+
+          {:error, error, status} ->
+            ResponseManager.send_resp(conn, status, nil, error)
+
+          {:error, error} ->
+            ResponseManager.send_resp(conn, 404, nil, error)
+
+          {:ok, content, status} ->
+            ResponseManager.send_resp(conn, status, %{content: content})
+
+          {:ok, content, status, messages} ->
+            ResponseManager.send_resp(conn, status, %{content: content}, messages)
+
+          res ->
+            ResponseManager.send_resp(conn, 200, %{content: res})
         end
 
       nil ->
         ResponseManager.send_resp(conn, 404, %{})
     end
-
   end
 
   @doc """
-       Get Arke groups
-       """
+  Get Arke groups
+  """
   def get_groups(conn, %{"arke_id" => id}) do
     project = conn.assigns[:arke_project]
     offset = Map.get(conn.query_params, "offset", nil)
