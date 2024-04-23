@@ -180,6 +180,34 @@ defmodule ArkeServer.AuthController do
   @doc """
   Signin a user
   """
+
+  #### GET ######
+
+  # TODO improve it in arke_auth
+  def signin(conn, %{"token" => token} = params) do
+    project = get_project(conn.assigns[:arke_project])
+
+    case QueryManager.get_by(project: project, group: :arke_auth_member, auth_token: token) do
+      nil -> ResponseManager.send_resp(conn, 401, "Unauthorized")
+      member ->
+        with {:ok, access_token, _claims} <- ArkeAuth.Guardian.encode_and_sign(member, %{}),
+             {:ok, refresh_token, _claims} <- ArkeAuth.Guardian.encode_and_sign(member, %{}, token_type: "refresh")
+          do
+          content =
+            Map.merge(Arke.StructManager.encode(member, type: :json), %{
+              access_token: access_token,
+              refresh_token: refresh_token
+            })
+          update_member_access_time(member, auth_token: nil)
+          ResponseManager.send_resp(conn, 200, %{content: content})
+        else {:error, type} ->
+          ResponseManager.send_resp(conn, 401, "Unauthorized")
+        end
+
+    end
+  end
+
+  #### POST ######
   def signin(conn, %{"username" => username, "password" => password} = params) do
     project = get_project(conn.assigns[:arke_project])
     auth_mode = System.get_env("AUTH_MODE", "default")
@@ -319,6 +347,8 @@ defmodule ArkeServer.AuthController do
             refresh_token: refresh_token
           })
 
+        update_member_access_time(member)
+
         ResponseManager.send_resp(conn, 200, %{content: content})
 
       {:error, error} ->
@@ -326,7 +356,13 @@ defmodule ArkeServer.AuthController do
     end
   end
 
-
+  defp update_member_access_time(member, args \\ []) do
+    datetime_now = NaiveDateTime.utc_now()
+    update_data = [last_access_time: datetime_now]
+    update_data = if Map.get(member.data, :first_access_time, nil) == nil, do: Keyword.put(update_data, :first_access_time, datetime_now), else: update_data
+    update_data = Keyword.merge(update_data, args)
+    QueryManager.update(member, update_data)
+  end
 
   @doc """
   Refresh the JWT tokens. Returns 200 and the tokes if ok

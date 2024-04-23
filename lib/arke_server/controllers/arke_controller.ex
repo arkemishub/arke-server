@@ -39,7 +39,7 @@ defmodule ArkeServer.ArkeController do
 
   @doc """
        It returns a unit
-       """ 
+       """
   def get_unit(conn, %{"unit_id" => _unit_id}) do
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
@@ -60,7 +60,7 @@ defmodule ArkeServer.ArkeController do
 
   @doc """
        Create a new unit
-       """ 
+       """
   def create(%Plug.Conn{body_params: params} = conn, %{"arke_id" => id}) do
     # all arkes struct and gen server are on :arke_system so it won't be changed to project
     project = conn.assigns[:arke_project]
@@ -93,7 +93,7 @@ defmodule ArkeServer.ArkeController do
   # delete
   @doc """
        Delete a unit
-       """ 
+       """
   def delete(conn, %{"unit_id" => _unit_id, "arke_id" => _arke_id}) do
     project = conn.assigns[:arke_project]
 
@@ -106,7 +106,7 @@ defmodule ArkeServer.ArkeController do
 
   @doc """
        Get units
-       """ 
+       """
   def get_all_unit(conn, %{"arke_id" => id}) do
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
@@ -193,7 +193,7 @@ defmodule ArkeServer.ArkeController do
 
   @doc """
        Call Arke function
-       """ 
+       """
   def call_arke_function(conn, %{"arke_id" => arke_id, "function_name" => function_name}) do
     project = conn.assigns[:arke_project]
     permission = conn.assigns[:permission_filter] || %{filter: nil}
@@ -211,7 +211,7 @@ defmodule ArkeServer.ArkeController do
 
   @doc """
        Call Unit function
-       """ 
+       """
   def call_unit_function(conn, %{
         "arke_id" => arke_id,
         "unit_id" => unit_id,
@@ -247,7 +247,7 @@ defmodule ArkeServer.ArkeController do
 
   @doc """
        Get Arke groups
-       """ 
+       """
   def get_groups(conn, %{"arke_id" => id}) do
     project = conn.assigns[:arke_project]
     offset = Map.get(conn.query_params, "offset", nil)
