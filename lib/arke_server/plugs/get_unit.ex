@@ -15,9 +15,10 @@
 defmodule ArkeServer.Plugs.GetUnit do
   @moduledoc """
              Plug to get a unit from the id in the url
-             """ && false
+             """
   import Plug.Conn
   alias Arke.{QueryManager}
+  alias ArkeServer.Utils.{QueryFilters}
 
   ## Once the project header has been set to mandatory retrieve it as follows:
   #  project = conn.assigns[:arke_project]
@@ -49,15 +50,16 @@ defmodule ArkeServer.Plugs.GetUnit do
   end
 
   defp get_unit(conn, project, arke_id, unit_id) do
-    try do
-      case QueryManager.get_by(project: project, arke: arke_id, id: unit_id) do
-        nil -> nil
-        unit -> unit
-      end
-    rescue
-      _ ->
-        not_found(conn)
-    end
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
+    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+
+    unit = QueryManager.query(project: project, arke: arke_id)
+    |> QueryFilters.apply_query_filters(permission.filter)
+    |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
+    |> QueryManager.where(id: unit_id)
+    |> QueryManager.one
+
+    unit
   end
 
   def single_unit(

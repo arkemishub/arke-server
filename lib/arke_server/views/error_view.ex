@@ -15,7 +15,7 @@
 defmodule ArkeServer.ErrorView do
   @moduledoc """
              Documentation for `ArkeServer.ErrorView`
-             """ && false
+             """
   use ArkeServer, :view
 
   # If you want to customize a particular status code

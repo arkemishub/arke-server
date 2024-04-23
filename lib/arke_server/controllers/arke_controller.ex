@@ -14,150 +14,31 @@
 
 defmodule ArkeServer.ArkeController do
   @moduledoc """
-             Documentation for  `ArkeServer.ArkeController`.
-             """ && false
+  Documentation for  `ArkeServer.ArkeController`.
+  """
 
   use ArkeServer, :controller
+
+  # Openapi request definition
+  use ArkeServer.Openapi.Spec, module: ArkeServer.Openapi.ArkeControllerSpec
+
   alias Arke.{QueryManager, LinkManager, StructManager}
   alias Arke.Boundary.ArkeManager
   alias UnitSerializer
   alias ArkeServer.ResponseManager
-  alias ArkeServer.Utils.{QueryFilters, QueryOrder}
+  alias ArkeServer.Utils.{QueryFilters, QueryOrder, Permission}
 
   alias ArkeServer.Openapi.Responses
 
   alias OpenApiSpex.{Operation, Reference}
 
-  # ------- start OPENAPI spec -------
-  def open_api_operation(action) do
-    operation = String.to_existing_atom("#{action}_operation")
-    apply(__MODULE__, operation, [])
-  end
-
-  def get_unit_operation() do
-    %Operation{
-      tags: ["Unit"],
-      summary: "Get unit",
-      description: "Get all the units of an Arke",
-      operationId: "ArkeServer.ArkeController.get_unit",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/arke_id"},
-        %Reference{"$ref": "#/components/parameters/unit_id"},
-        %Reference{"$ref": "#/components/parameters/arke-project-key"},
-        %Reference{"$ref": "#/components/parameters/limit"},
-        %Reference{"$ref": "#/components/parameters/offset"},
-        %Reference{"$ref": "#/components/parameters/order"},
-        %Reference{"$ref": "#/components/parameters/filter"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
-
-  def create_operation() do
-    %Operation{
-      tags: ["Unit"],
-      summary: "Create Unit",
-      description: "Create a new unit for the given Arke",
-      operationId: "ArkeServer.ArkeController.create",
-      parameters: [%Reference{"$ref": "#/components/parameters/arke-project-key"}],
-      requestBody:
-        OpenApiSpex.Operation.request_body(
-          "Parameters to create a unit",
-          "application/json",
-          ArkeServer.Schemas.CreateUnitExample,
-          required: true
-        ),
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([200, 204])
-    }
-  end
-
-  def update_operation() do
-    %Operation{
-      tags: ["Unit"],
-      summary: "Login",
-      description: "Provide credentials to login to the app",
-      operationId: "ArkeServer.ArkeController.update",
-      parameters: [%Reference{"$ref": "#/components/parameters/arke-project-key"}],
-      requestBody:
-        OpenApiSpex.Operation.request_body(
-          "Parameters to login",
-          "application/json",
-          ArkeServer.Schemas.UserParams,
-          required: true
-        ),
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
-
-  def delete_operation() do
-    %Operation{
-      tags: ["Unit"],
-      summary: "Delete Unit",
-      description: "Delete a specific Unit",
-      operationId: "ArkeServer.ArkeController.delete",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/arke_id"},
-        %Reference{"$ref": "#/components/parameters/unit_id"},
-        %Reference{"$ref": "#/components/parameters/arke-project-key"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([200, 201])
-    }
-  end
-
-  def get_all_unit_operation() do
-    %Operation{
-      tags: ["Unit"],
-      summary: "Get all",
-      description: "Get all the unit for the given Arke",
-      operationId: "ArkeServer.ArkeController.get_all_unit",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/arke_id"},
-        %Reference{"$ref": "#/components/parameters/arke-project-key"},
-        %Reference{"$ref": "#/components/parameters/limit"},
-        %Reference{"$ref": "#/components/parameters/offset"},
-        %Reference{"$ref": "#/components/parameters/order"},
-        %Reference{"$ref": "#/components/parameters/filter"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
-
-  def get_groups_operation() do
-    %Operation{
-      tags: ["Group"],
-      summary: "Get arke in group",
-      description: "Get all available groups",
-      operationId: "ArkeServer.ArkeController.get_groups",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/arke_id"},
-        %Reference{"$ref": "#/components/parameters/arke-project-key"},
-        %Reference{"$ref": "#/components/parameters/limit"},
-        %Reference{"$ref": "#/components/parameters/offset"},
-        %Reference{"$ref": "#/components/parameters/order"},
-        %Reference{"$ref": "#/components/parameters/filter"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
-
-  # ------- end OPENAPI spec -------
-
   def data_as_klist(data) do
     Enum.map(data, fn {key, value} -> {String.to_existing_atom(key), value} end)
   end
 
-  ## Once the project header has been set to mandatory retrieve it as follows:
-  #  project = conn.assigns[:arke_project]
-
   @doc """
-       It returns a unit
-       """ && false
+  It returns a unit
+  """
   def get_unit(conn, %{"unit_id" => _unit_id}) do
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
@@ -176,8 +57,8 @@ defmodule ArkeServer.ArkeController do
   end
 
   @doc """
-       Create a new unit
-       """ && false
+  Create a new unit
+  """
   def create(%Plug.Conn{body_params: params} = conn, %{"arke_id" => id}) do
     # all arkes struct and gen server are on :arke_system so it won't be changed to project
     project = conn.assigns[:arke_project]
@@ -209,8 +90,8 @@ defmodule ArkeServer.ArkeController do
 
   # delete
   @doc """
-       Delete a unit
-       """ && false
+  Delete a unit
+  """
   def delete(conn, %{"unit_id" => _unit_id, "arke_id" => _arke_id}) do
     project = conn.assigns[:arke_project]
 
@@ -222,60 +103,71 @@ defmodule ArkeServer.ArkeController do
   end
 
   @doc """
-       Get units
-       """ && false
+  Get units
+  """
   def get_all_unit(conn, %{"arke_id" => id}) do
+    # TODO handle query parameter with plugs
+    load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+    load_files = Map.get(conn.query_params, "load_files", "false") == "true"
+    offset = Map.get(conn.query_params, "offset", nil)
+    limit = Map.get(conn.query_params, "limit", nil)
+    order = Map.get(conn.query_params, "order", [])
+
+    {count, units} =
+      handle_get_all_unit_query(conn, id)
+      |> QueryOrder.apply_order(order)
+      |> QueryManager.pagination(offset, limit)
+
+    ResponseManager.send_resp(conn, 200, %{
+      count: count,
+      items:
+        StructManager.encode(units,
+          load_links: load_links,
+          load_values: load_values,
+          load_files: load_files,
+          type: :json
+        )
+    })
+  end
+
+  defp handle_get_all_unit_query(conn, arke_id) do
     project = conn.assigns[:arke_project]
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
 
-    case get_permission(conn, id, :get) do
-      {:ok, permission} ->
-        member = ArkeAuth.Guardian.Plug.current_resource(conn)
+    member = ArkeAuth.Guardian.Plug.current_resource(conn)
 
-        offset = Map.get(conn.query_params, "offset", nil)
-        limit = Map.get(conn.query_params, "limit", nil)
-        order = Map.get(conn.query_params, "order", [])
+    QueryManager.query(project: project, arke: arke_id)
+    |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
+    |> QueryFilters.apply_query_filters(permission.filter)
+    |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
+    |> handle_coordinates_filter(conn)
+  end
 
-        # TODO handle query parameter with plugs
-        load_links = Map.get(conn.query_params, "load_links", "false") == "true"
-        load_values = Map.get(conn.query_params, "load_values", "false") == "true"
-        load_files = Map.get(conn.query_params, "load_files", "false") == "true"
-        IO.inspect(Map.get(permission, :child_only, false))
-        IO.inspect(permission)
-        {count, units} =
-          QueryManager.query(project: project, arke: id)
-          |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-          |> QueryFilters.apply_query_filters(permission.filter)
-          |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
-          |> handle_coordinates_filter(conn)
-          |> QueryOrder.apply_order(order)
-          |> QueryManager.pagination(offset, limit)
+  @doc """
+  Count units
+  """
+  def get_all_unit_count(conn, %{"arke_id" => id}) do
+    count =
+      handle_get_all_unit_query(conn, id)
+      |> QueryManager.count()
 
-        ResponseManager.send_resp(conn, 200, %{
-          count: count,
-          items:
-            StructManager.encode(units,
-              load_links: load_links,
-              load_values: load_values,
-              load_files: load_files,
-              type: :json
-            )
-        })
-
-      {:error, :not_authorized} ->
-        ResponseManager.send_resp(conn, 403, %{})
-    end
+    ResponseManager.send_resp(conn, 200, count)
   end
 
   defp handle_coordinates_filter(query, conn) do
-
     radius = parse_coordinate(Map.get(conn.query_params, "radius", 30))
     latitude = parse_coordinate(Map.get(conn.query_params, "latitude", nil))
     longitude = parse_coordinate(Map.get(conn.query_params, "longitude", nil))
 
     case latitude == nil or longitude == nil do
-      true -> query
+      true ->
+        query
+
       false ->
-        {lat_nord, lat_sud, lon_est, lon_ovest} = calculate_coordinates(latitude, longitude, radius)
+        {lat_nord, lat_sud, lon_est, lon_ovest} =
+          calculate_coordinates(latitude, longitude, radius)
+
         query
         |> QueryManager.where(latitude__gte: lat_sud, latitude__lte: lat_nord)
         |> QueryManager.where(longitude__gte: lon_est, latitude__lte: lon_ovest)
@@ -285,8 +177,7 @@ defmodule ArkeServer.ArkeController do
   defp parse_coordinate(c) when is_binary(c), do: String.to_float(c)
   defp parse_coordinate(c), do: c
 
-  def calculate_coordinates(latitude, longitude, radius) do
-
+  defp calculate_coordinates(latitude, longitude, radius) do
     latitude_to_km = 110.574
     longitude_to_km = 111.32
     radius = radius
@@ -303,74 +194,86 @@ defmodule ArkeServer.ArkeController do
   end
 
   @doc """
-       Call Arke function
-       """ && false
+  Call Arke function
+  """
   def call_arke_function(conn, %{"arke_id" => arke_id, "function_name" => function_name}) do
     project = conn.assigns[:arke_project]
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
 
-    case get_permission(conn, arke_id, :get) do
-      {:ok, permission} ->
-        arke =
-          ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
+    arke =
+      ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
 
-        case ArkeManager.call_func(arke, String.to_atom(function_name), [arke]) do
-          {:file, file, filename} -> send_download(conn, {:binary, file}, filename: filename)
-          {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
-          {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
-          {:ok, content, status} -> ResponseManager.send_resp(conn, status, %{content: content})
-          {:ok, content, status, messages} -> ResponseManager.send_resp(conn, status, %{content: content}, messages)
-          res -> ResponseManager.send_resp(conn, 200, %{content: res})
-        end
+    case ArkeManager.call_func(arke, String.to_atom(function_name), [arke]) do
+      {:file, file, filename} ->
+        send_download(conn, {:binary, file}, filename: filename)
 
-      {:error, :not_authorized} ->
-        ResponseManager.send_resp(conn, 403, %{})
+      {:error, error, status} ->
+        ResponseManager.send_resp(conn, status, nil, error)
+
+      {:error, error} ->
+        ResponseManager.send_resp(conn, 404, nil, error)
+
+      {:ok, content, status} ->
+        ResponseManager.send_resp(conn, status, %{content: content})
+
+      {:ok, content, status, messages} ->
+        ResponseManager.send_resp(conn, status, %{content: content}, messages)
+
+      res ->
+        ResponseManager.send_resp(conn, 200, %{content: res})
     end
   end
 
   @doc """
-       Call Unit function
-       """ && false
+  Call Unit function
+  """
   def call_unit_function(conn, %{
         "arke_id" => arke_id,
         "unit_id" => unit_id,
         "function_name" => function_name
       }) do
     project = conn.assigns[:arke_project]
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
 
-    case get_permission(conn, arke_id, :get) do
-      {:ok, permission} ->
-        arke =
-          ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
+    arke =
+      ArkeManager.get(arke_id, project) |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
 
-        unit =
-          QueryManager.query(project: project, arke: arke)
-          |> QueryManager.where(id: unit_id)
-          |> QueryFilters.apply_query_filters(permission.filter)
-          |> QueryManager.one()
+    unit =
+      QueryManager.query(project: project, arke: arke)
+      |> QueryManager.where(id: unit_id)
+      |> QueryFilters.apply_query_filters(permission.filter)
+      |> QueryManager.one()
 
-        case unit do
-          %Arke.Core.Unit{} = unit ->
-            case ArkeManager.call_func(arke, String.to_atom(function_name), [arke, unit]) do
-              {:file, file, filename} -> send_download(conn, {:binary, file}, filename: filename)
-              {:error, error, status} -> ResponseManager.send_resp(conn, status, nil, error)
-              {:error, error} -> ResponseManager.send_resp(conn, 404, nil, error)
-              {:ok, content, status} -> ResponseManager.send_resp(conn, status, %{content: content})
-              {:ok, content, status, messages} -> ResponseManager.send_resp(conn, status, %{content: content}, messages)
-              res -> ResponseManager.send_resp(conn, 200, %{content: res})
-            end
+    case unit do
+      %Arke.Core.Unit{} = unit ->
+        case ArkeManager.call_func(arke, String.to_atom(function_name), [arke, unit]) do
+          {:file, file, filename} ->
+            send_download(conn, {:binary, file}, filename: filename)
 
-          nil ->
-            ResponseManager.send_resp(conn, 404, %{})
+          {:error, error, status} ->
+            ResponseManager.send_resp(conn, status, nil, error)
+
+          {:error, error} ->
+            ResponseManager.send_resp(conn, 404, nil, error)
+
+          {:ok, content, status} ->
+            ResponseManager.send_resp(conn, status, %{content: content})
+
+          {:ok, content, status, messages} ->
+            ResponseManager.send_resp(conn, status, %{content: content}, messages)
+
+          res ->
+            ResponseManager.send_resp(conn, 200, %{content: res})
         end
 
-      {:error, :not_authorized} ->
-        ResponseManager.send_resp(conn, 403, %{})
+      nil ->
+        ResponseManager.send_resp(conn, 404, %{})
     end
   end
 
   @doc """
-       Get Arke groups
-       """ && false
+  Get Arke groups
+  """
   def get_groups(conn, %{"arke_id" => id}) do
     project = conn.assigns[:arke_project]
     offset = Map.get(conn.query_params, "offset", nil)
@@ -389,37 +292,5 @@ defmodule ArkeServer.ArkeController do
       count: count,
       items: StructManager.encode(units, type: :json)
     })
-  end
-
-  defp get_permission(conn, arke_id, action) do
-    member = ArkeAuth.Guardian.Plug.current_resource(conn)
-    project = conn.assigns[:arke_project]
-    arke = ArkeManager.get(arke_id, project)
-
-    case ArkeAuth.Core.Member.get_permission(member, arke) do
-      {:ok, permission} ->
-        case Map.get(permission, action, false) do
-          true ->
-            permission = get_permission_filter(conn, member, permission)
-            {:ok, permission}
-
-          false ->
-            {:error, :not_authorized}
-        end
-
-      {:error, nil} ->
-        {:error, :not_authorized}
-    end
-  end
-
-  defp get_permission_filter(conn, member, %{filter: nil} = permission), do: permission
-
-  defp get_permission_filter(conn, member, permission) do
-    filter = String.replace(permission.filter, "{{arke_member}}", Atom.to_string(member.id))
-
-    case QueryFilters.get_from_string(conn, filter) do
-      {:ok, data} -> Map.put(permission, :filter, data)
-      {:error, _msg} -> Map.put(permission, :filter, nil)
-    end
   end
 end

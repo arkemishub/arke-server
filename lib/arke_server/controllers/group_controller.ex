@@ -14,9 +14,13 @@
 
 defmodule ArkeServer.GroupController do
   @moduledoc """
-                       Documentation for `ArkeServer.ParameterController`
-             """ && false
+            Documentation for `ArkeServer.ParameterController`
+  """
   use ArkeServer, :controller
+
+  # Openapi request definition
+  use ArkeServer.Openapi.Spec, module: ArkeServer.Openapi.GroupControllerSpec
+
   alias Arke.{QueryManager, LinkManager, StructManager}
   alias Arke.Core.Unit
   alias Arke.Boundary.{ArkeManager, GroupManager}
@@ -27,81 +31,37 @@ defmodule ArkeServer.GroupController do
 
   alias OpenApiSpex.{Operation, Reference}
 
-  # ------- start OPENAPI spec -------
-  def open_api_operation(action) do
-    operation = String.to_existing_atom("#{action}_operation")
-    apply(__MODULE__, operation, [])
-  end
+  @doc """
+  Call Group function
+  """
+  def call_group_function(conn, %{"group_id" => group_id, "function_name" => function_name}) do
+    project = conn.assigns[:arke_project]
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
 
-  def struct_operation() do
-    %Operation{
-      tags: ["Group"],
-      summary: "Group struct",
-      description: "Get the struct for the given group",
-      operationId: "ArkeServer.ArkeController.struct",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/group_id"},
-        %Reference{"$ref": "#/components/parameters/arke-project-key"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
+    group =
+      GroupManager.get(group_id, project)
+      |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
 
-  def get_arke_operation() do
-    %Operation{
-      tags: ["Group"],
-      summary: "Arke list",
-      description: "Get all theArke in the given group",
-      operationId: "ArkeServer.ArkeController.get_arke",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/arke-project-key"},
-        %Reference{"$ref": "#/components/parameters/limit"},
-        %Reference{"$ref": "#/components/parameters/offset"},
-        %Reference{"$ref": "#/components/parameters/order"},
-        %Reference{"$ref": "#/components/parameters/filter"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
+    case GroupManager.call_func(group, String.to_atom(function_name), [group]) do
+      {:file, file, filename} ->
+        send_download(conn, {:binary, file}, filename: filename)
 
-  def get_unit_operation() do
-    %Operation{
-      tags: ["Group"],
-      summary: "Unit list",
-      description: "Get all the units of all the Arke in the given group",
-      operationId: "ArkeServer.ArkeController.get_unit",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/group_id"},
-        %Reference{"$ref": "#/components/parameters/arke-project-key"},
-        %Reference{"$ref": "#/components/parameters/limit"},
-        %Reference{"$ref": "#/components/parameters/offset"},
-        %Reference{"$ref": "#/components/parameters/order"},
-        %Reference{"$ref": "#/components/parameters/filter"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
+      {:error, error, status} ->
+        ResponseManager.send_resp(conn, status, nil, error)
 
-  def unit_detail_operation() do
-    %Operation{
-      tags: ["Group"],
-      summary: "Unit detail",
-      description: "Get the detail of the given unit in a given group",
-      operationId: "ArkeServer.ArkeController.unit_detail",
-      parameters: [
-        %Reference{"$ref": "#/components/parameters/group_id"},
-        %Reference{"$ref": "#/components/parameters/unit_id"},
-        %Reference{"$ref": "#/components/parameters/arke-project-key"}
-      ],
-      security: [%{"authorization" => []}],
-      responses: Responses.get_responses([201, 204])
-    }
-  end
+      {:error, error} ->
+        ResponseManager.send_resp(conn, 404, nil, error)
 
-  # ------- end OPENAPI spec -------
+      {:ok, content, status} ->
+        ResponseManager.send_resp(conn, status, %{content: content})
+
+      {:ok, content, status, messages} ->
+        ResponseManager.send_resp(conn, status, %{content: content}, messages)
+
+      res ->
+        ResponseManager.send_resp(conn, 200, %{content: res})
+    end
+  end
 
   # get the group struct
   def struct(conn, %{"group_id" => group_id}) do
@@ -110,8 +70,13 @@ defmodule ArkeServer.GroupController do
     group = GroupManager.get(String.to_existing_atom(group_id), project)
     parameters = GroupManager.get_parameters(group)
 
+    tmp_arke =
+      Unit.load(arke,
+        label: group.data.label,
+        parameters: parameters,
+        metadata: %{project: project}
+      )
 
-    tmp_arke = Unit.load(arke, label: group.data.label, parameters: parameters, metadata: %{project: project})
     struct = StructManager.get_struct(tmp_arke, conn.query_params)
     ResponseManager.send_resp(conn, 200, %{content: struct})
   end
@@ -134,27 +99,56 @@ defmodule ArkeServer.GroupController do
   ## get all the units of the arke inside the given group
   def get_unit(conn, %{"group_id" => group_id}) do
     project = conn.assigns[:arke_project]
+    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
     offset = Map.get(conn.query_params, "offset", nil)
     limit = Map.get(conn.query_params, "limit", nil)
     order = Map.get(conn.query_params, "order", [])
+
+    load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+    load_files = Map.get(conn.query_params, "load_files", "false") == "true"
 
     {count, units} =
       QueryManager.query(project: project)
       |> QueryManager.filter(:group_id, :eq, group_id, false)
       |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
+      |> QueryFilters.apply_query_filters(permission.filter)
+      |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
       |> QueryOrder.apply_order(order)
       |> QueryManager.pagination(offset, limit)
 
     ResponseManager.send_resp(conn, 200, %{
       count: count,
-      items: StructManager.encode(units, type: :json)
+      items:
+        StructManager.encode(units,
+          load_links: load_links,
+          load_values: load_values,
+          load_files: load_files,
+          type: :json
+        )
     })
   end
 
   # get the detail of the unit in the given group id based on the unit_id
   def unit_detail(conn, %{"group_id" => group_id, "unit_id" => unit_id}) do
     project = conn.assigns[:arke_project]
-    unit = QueryManager.get_by(project: project, group_id: group_id, id: unit_id)
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
+    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+
+    load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+    load_files = Map.get(conn.query_params, "load_files", "false") == "true"
+
+    unit =
+      QueryManager.query(project: project)
+      |> QueryManager.filter(:group_id, :eq, group_id, false)
+      |> QueryManager.filter(:id, :eq, unit_id, false)
+      |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
+      |> QueryFilters.apply_query_filters(permission.filter)
+      |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
+      |> QueryManager.one()
+
     ResponseManager.send_resp(conn, 200, %{content: StructManager.encode(unit, type: :json)})
   end
 end

@@ -14,18 +14,46 @@
 
 defmodule ArkeServer.Router do
   @moduledoc """
-             Module where all the routes are defined. Too see run in the CLI: `mix phx.routes ArkeServer.Router`
-             """ && false
+  Module where all the routes are defined. Too see run in the CLI: `mix phx.routes ArkeServer.Router`
+  """
   use ArkeServer, :router
+
+  ########################################################################
+  ### START SSO PIPELINE #################################################
+  ########################################################################
+
+  pipeline :oauth do
+    plug(ArkeServer.Plugs.OAuth,
+      otp_app: :arke_server,
+      base_path: "/lib/auth/signin"
+    )
+  end
+
+  pipeline :sso_auth_api do
+    plug(:accepts, ["json"])
+    plug(ArkeServer.Plugs.SSOAuthPipeline)
+  end
+
+  ########################################################################
+  ### END SSO PIPELINE ###################################################
+  ########################################################################
 
   pipeline :api do
     plug(:accepts, ["json", "multipart"])
     plug(ArkeServer.Plugs.NotAuthPipeline)
   end
 
+  pipeline :browser do
+    plug(:accepts, ["html"])
+    plug(:fetch_session)
+    plug(:fetch_flash)
+    plug(:protect_from_forgery)
+    plug(:put_secure_browser_headers)
+  end
+
   pipeline :auth_api do
     plug(:accepts, ["json", "multipart"])
-    plug(ArkeServer.Plugs.AuthPipeline)
+    plug(ArkeServer.Plugs.Permission)
   end
 
   pipeline :project do
@@ -52,6 +80,11 @@ defmodule ArkeServer.Router do
 
   scope "/lib", ArkeServer do
     # -------- AUTH --------
+
+    scope "/health" do
+      get("ready", HealthController, :ready)
+    end
+
     pipe_through([:openapi])
 
     scope "/auth" do
@@ -64,20 +97,33 @@ defmodule ArkeServer.Router do
       post("/reset_password", AuthController, :reset_password)
       post("/reset_password/:token", AuthController, :reset_password)
 
-      pipe_through(:api)
+      scope "/signin/:provider" do
+        pipe_through(:oauth)
+        post("/", OAuthController, :handle_client_login)
+
+        # endpoints below  are used only if we want to enable the redirect via backed
+        # pipe_through(:browser)
+        # get("/", OAuthController, :request)
+        # get("/callback", OAuthController, :callback)
+        # post("/callback", OAuthController, :callback)
+      end
+
+      scope "/:member/:provider" do
+        pipe_through([:sso_auth_api])
+        post("/", OAuthController, :handle_create_member)
+      end
+
       post("/refresh", AuthController, :refresh)
+
+      pipe_through(:auth_api)
       post("/verify", AuthController, :verify)
+      post("/change_password", AuthController, :change_password)
     end
-
-    # ↑ Not auth endpoint (no access token)
-    pipe_through([:auth_api])
-    # ↓ Auth endpoint (no access token)
-
-    post("/auth/change_password", AuthController, :change_password)
 
     # -------- PROJECT --------
 
     scope "/arke_project" do
+      pipe_through([:auth_api])
       get("/unit", ProjectController, :get_all_unit)
       get("/unit/:unit_id", ProjectController, :get_unit)
       put("/unit/:unit_id", ProjectController, :update)
@@ -86,7 +132,9 @@ defmodule ArkeServer.Router do
     end
 
     # ↑ Do not need arke-project-key
-    pipe_through([:project])
+    # ↑ Not auth endpoint (no access token)
+    pipe_through([:project, :auth_api])
+    # ↓ Auth endpoint (access token)
     # ↓ Must have arke-project-key
 
     # GROUP
@@ -140,6 +188,9 @@ defmodule ArkeServer.Router do
     post("/:arke_id/function/:function_name", ArkeController, :call_arke_function)
     post("/:arke_id/unit/:unit_id/function/:function_name", ArkeController, :call_unit_function)
 
+    get("/group/:group_id/function/:function_name", GroupController, :call_group_function)
+    post("/group/:group_id/function/:function_name", GroupController, :call_group_function)
+
     # -------- PARAMETER --------
     get("/parameter/:parameter_id", ParameterController, :get_parameter_value)
     post("/parameter/:parameter_id", ParameterController, :add_link_parameter_value)
@@ -152,6 +203,7 @@ defmodule ArkeServer.Router do
     scope "/:arke_id" do
       get("/struct", StructController, :get_arke_struct)
       get("/group", ArkeController, :get_groups)
+      get("/count", ArkeController, :get_all_unit_count)
 
       # UNIT
       scope "/unit" do
@@ -161,6 +213,7 @@ defmodule ArkeServer.Router do
         # TOPOLOGY
         scope "/:arke_unit_id" do
           get("/link/:direction", TopologyController, :get_node)
+          get("/link/:direction/count", TopologyController, :get_node_count)
           get("/struct", StructController, :get_unit_struct)
         end
       end
