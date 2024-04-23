@@ -14,13 +14,12 @@
 
 defmodule ArkeServer.GroupController do
   @moduledoc """
-                       Documentation for `ArkeServer.ParameterController`
-             """
+            Documentation for `ArkeServer.ParameterController`
+  """
   use ArkeServer, :controller
 
   # Openapi request definition
   use ArkeServer.Openapi.Spec, module: ArkeServer.Openapi.GroupControllerSpec
-
 
   alias Arke.{QueryManager, LinkManager, StructManager}
   alias Arke.Core.Unit
@@ -32,6 +31,35 @@ defmodule ArkeServer.GroupController do
 
   alias OpenApiSpex.{Operation, Reference}
 
+  @doc """
+  Call Group function
+  """
+  def call_group_function(conn, %{"group_id" => group_id, "function_name" => function_name}) do
+    project = conn.assigns[:arke_project]
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
+
+    group =
+      GroupManager.get(group_id, project)
+      |> Arke.Core.Unit.update(runtime_data: %{conn: conn})
+
+    case GroupManager.call_func(group, String.to_atom(function_name), [group]) do
+      {:error, error, status} ->
+        ResponseManager.send_resp(conn, status, nil, error)
+
+      {:error, error} ->
+        ResponseManager.send_resp(conn, 404, nil, error)
+
+      {:ok, content, status} ->
+        ResponseManager.send_resp(conn, status, %{content: content})
+
+      {:ok, content, status, messages} ->
+        ResponseManager.send_resp(conn, status, %{content: content}, messages)
+
+      res ->
+        ResponseManager.send_resp(conn, 200, %{content: res})
+    end
+  end
+
   # get the group struct
   def struct(conn, %{"group_id" => group_id}) do
     project = conn.assigns[:arke_project]
@@ -39,8 +67,13 @@ defmodule ArkeServer.GroupController do
     group = GroupManager.get(String.to_existing_atom(group_id), project)
     parameters = GroupManager.get_parameters(group)
 
+    tmp_arke =
+      Unit.load(arke,
+        label: group.data.label,
+        parameters: parameters,
+        metadata: %{project: project}
+      )
 
-    tmp_arke = Unit.load(arke, label: group.data.label, parameters: parameters, metadata: %{project: project})
     struct = StructManager.get_struct(tmp_arke, conn.query_params)
     ResponseManager.send_resp(conn, 200, %{content: struct})
   end
@@ -82,9 +115,15 @@ defmodule ArkeServer.GroupController do
       |> QueryOrder.apply_order(order)
       |> QueryManager.pagination(offset, limit)
 
-      ResponseManager.send_resp(conn, 200, %{
+    ResponseManager.send_resp(conn, 200, %{
       count: count,
-      items: StructManager.encode(units, load_links: load_links, load_values: load_values, load_files: load_files,type: :json)
+      items:
+        StructManager.encode(units,
+          load_links: load_links,
+          load_values: load_values,
+          load_files: load_files,
+          type: :json
+        )
     })
   end
 
@@ -98,13 +137,14 @@ defmodule ArkeServer.GroupController do
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
     load_files = Map.get(conn.query_params, "load_files", "false") == "true"
 
-    unit = QueryManager.query(project: project)
-    |> QueryManager.filter(:group_id, :eq, group_id, false)
-    |> QueryManager.filter(:id, :eq, unit_id, false)
-    |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-    |> QueryFilters.apply_query_filters(permission.filter)
-    |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
-    |> QueryManager.one()
+    unit =
+      QueryManager.query(project: project)
+      |> QueryManager.filter(:group_id, :eq, group_id, false)
+      |> QueryManager.filter(:id, :eq, unit_id, false)
+      |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
+      |> QueryFilters.apply_query_filters(permission.filter)
+      |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
+      |> QueryManager.one()
 
     ResponseManager.send_resp(conn, 200, %{content: StructManager.encode(unit, type: :json)})
   end

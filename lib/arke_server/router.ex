@@ -14,10 +14,9 @@
 
 defmodule ArkeServer.Router do
   @moduledoc """
-             Module where all the routes are defined. Too see run in the CLI: `mix phx.routes ArkeServer.Router`
-             """
+  Module where all the routes are defined. Too see run in the CLI: `mix phx.routes ArkeServer.Router`
+  """
   use ArkeServer, :router
-
 
   ########################################################################
   ### START SSO PIPELINE #################################################
@@ -25,8 +24,9 @@ defmodule ArkeServer.Router do
 
   pipeline :oauth do
     plug(ArkeServer.Plugs.OAuth,
-                   otp_app: :arke_server,
-                   base_path: "/lib/auth/signin")
+      otp_app: :arke_server,
+      base_path: "/lib/auth/signin"
+    )
   end
 
   pipeline :sso_auth_api do
@@ -81,9 +81,10 @@ defmodule ArkeServer.Router do
   scope "/lib", ArkeServer do
     # -------- AUTH --------
 
-    scope "/health"do
-      get("ready",HealthController,:ready)
+    scope "/health" do
+      get("ready", HealthController, :ready)
     end
+
     pipe_through([:openapi])
 
     scope "/auth" do
@@ -99,23 +100,23 @@ defmodule ArkeServer.Router do
         pipe_through(:oauth)
         post("/", OAuthController, :handle_client_login)
 
-
         # endpoints below  are used only if we want to enable the redirect via backed
         # pipe_through(:browser)
         # get("/", OAuthController, :request)
         # get("/callback", OAuthController, :callback)
         # post("/callback", OAuthController, :callback)
       end
+
       scope "/:member/:provider" do
         pipe_through([:sso_auth_api])
         post("/", OAuthController, :handle_create_member)
       end
+
       post("/refresh", AuthController, :refresh)
 
       pipe_through(:auth_api)
       post("/verify", AuthController, :verify)
       post("/change_password", AuthController, :change_password)
-
     end
 
     # -------- PROJECT --------
@@ -131,7 +132,7 @@ defmodule ArkeServer.Router do
 
     # ↑ Do not need arke-project-key
     # ↑ Not auth endpoint (no access token)
-    pipe_through([:project,:auth_api])
+    pipe_through([:project, :auth_api])
     # ↓ Auth endpoint (access token)
     # ↓ Must have arke-project-key
 
@@ -185,6 +186,9 @@ defmodule ArkeServer.Router do
 
     post("/:arke_id/function/:function_name", ArkeController, :call_arke_function)
     post("/:arke_id/unit/:unit_id/function/:function_name", ArkeController, :call_unit_function)
+
+    get("/group/:group_id/function/:function_name", GroupController, :call_group_function)
+    post("/group/:group_id/function/:function_name", GroupController, :call_group_function)
 
     # -------- PARAMETER --------
     get("/parameter/:parameter_id", ParameterController, :get_parameter_value)
