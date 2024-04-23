@@ -116,7 +116,7 @@ defmodule ArkeServer.ArkeController do
     limit = Map.get(conn.query_params, "limit", nil)
     order = Map.get(conn.query_params, "order", [])
 
-    {count, units} = handel_get_all_unit_query(conn, id)
+    {count, units} = handle_get_all_unit_query(conn, id)
       |> QueryOrder.apply_order(order)
       |> QueryManager.pagination(offset, limit)
 
@@ -132,7 +132,7 @@ defmodule ArkeServer.ArkeController do
     })
   end
 
-  defp handel_get_all_unit_query(conn, arke_id) do
+  defp handle_get_all_unit_query(conn, arke_id) do
     project = conn.assigns[:arke_project]
     permission = conn.assigns[:permission_filter] || %{filter: nil}
 
@@ -149,7 +149,7 @@ defmodule ArkeServer.ArkeController do
   Count units
   """
   def get_all_unit_count(conn, %{"arke_id" => id}) do
-    count = handel_get_all_unit_query(conn, id)
+    count = handle_get_all_unit_query(conn, id)
             |> QueryManager.count()
 
     ResponseManager.send_resp(conn, 200, count)
