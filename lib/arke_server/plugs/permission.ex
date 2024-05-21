@@ -19,6 +19,10 @@ defmodule ArkeServer.Plugs.Permission do
 
   def init(default), do: default
 
+  def call(%Plug.Conn{request_path: "/lib/auth/change_password"}=conn, _default) do
+    get_auth_conn(conn)
+  end
+
   def call(%Plug.Conn{path_params: %{"arke_id" => arke_id}} = conn, _default) do
     check_permission(conn, arke_id)
   end
@@ -50,7 +54,6 @@ defmodule ArkeServer.Plugs.Permission do
   def call(conn, default), do: conn
 
   defp check_permission(%Plug.Conn{method: method} = conn, arke_id) do
-    IO.inspect(arke_id)
     # todo: caipre cosa fare se arke_project non c'è,
     project = conn.assigns[:arke_project]
     action = parse_method(method)

@@ -140,7 +140,6 @@ defmodule ArkeServer.AuthController do
        ) do
 
     {_, params} = Map.pop(req_params, "otp")
-
     with {:ok, params, arke_system_user} <- check_user_on_signup(params, Map.get(params, "arke_system_user", nil)),
          {:ok, _member} <- QueryManager.create(project, arke, data_as_klist(params))
           do
@@ -289,7 +288,6 @@ defmodule ArkeServer.AuthController do
     |> case do
       {:ok, member, _access_token, _refresh_token} ->
         reviewer = get_review_email()
-
         if username in reviewer do
           if otp == get_review_code() do
             handle_signin(conn, username, password, project)
@@ -413,80 +411,12 @@ defmodule ArkeServer.AuthController do
          conn,
          %{"old_password" => old_pwd, "password" => new_pwd},
          member,
-         "default"
+         _mode
        ),
        do: handle_change_password(conn, member, old_pwd, new_pwd)
 
-  defp handle_change_password_mode(conn, _, _, "default"), do: params_required(conn, ["old_password","password"])
+  defp handle_change_password_mode(conn, _, _, _mode), do: params_required(conn, ["old_password","password"])
 
-  defp handle_change_password_mode(
-         conn,
-         %{"old_password" => _old_pwd, "password" => _new_pwd, "otp" => otp},
-         %{metadata: %{project: project}} = member,
-         "otp_mail"
-       )
-       when is_nil(otp) do
-    otp_arke = ArkeManager.get(:otp, :arke_system)
-
-    OtpManager.get(member.id, project)
-    |> case do
-      nil -> :ok
-      otp -> OtpManager.remove(otp)
-    end
-
-    otp =
-      Arke.Core.Unit.new(
-        member.id,
-        %{
-          code: get_review_code(),
-          action: "change_password",
-          expiry_datetime: NaiveDateTime.utc_now() |> NaiveDateTime.add(300, :second)
-        },
-        otp_arke.id,
-        nil,
-        %{},
-        DateTime.utc_now(),
-        DateTime.utc_now(),
-        ArkeAuth.Core.Otp,
-        %{}
-      )
-
-    OtpManager.create(otp, project)
-    ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
-  end
-
-  defp handle_change_password_mode(
-         conn,
-         %{"old_password" => old_pwd, "password" => new_pwd, "otp" => otp},
-         %{metadata: %{project: project}} = member,
-         "otp_mail"
-       ) do
-    OtpManager.get(member.id, project)
-    |> case do
-      nil ->
-        {:error,msg} = Error.create(:auth, "unauthorized")
-        ResponseManager.send_resp(conn, 401, nil, msg)
-
-      otp_unit ->
-        case otp_unit.data.code == otp do
-          true ->
-            case NaiveDateTime.compare(otp_unit.data.expiry_datetime, NaiveDateTime.utc_now()) do
-              :lt ->
-                {:error,msg} = Error.create(:auth, "gone")
-                ResponseManager.send_resp(conn, 410, nil, msg)
-
-              :gt ->
-                OtpManager.remove(otp_unit)
-                handle_change_password(conn, member, old_pwd, new_pwd)
-            end
-
-          false ->
-            ResponseManager.send_resp(conn, 401, nil, nil)
-        end
-    end
-  end
-
-  defp handle_change_password_mode(conn, _, _, "otp_mail"), do: params_required(conn, ["old_password","password","otp"])
   defp handle_change_password_mode(conn, _, _, _), do: auth_not_active(conn)
 
   defp handle_change_password(conn, member, old_pwd, new_pwd) do
