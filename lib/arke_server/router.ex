@@ -83,6 +83,8 @@ defmodule ArkeServer.Router do
 
     scope "/health" do
       get("ready", HealthController, :ready)
+      get("live", HealthController, :live)
+      get("start", HealthController, :start)
     end
 
     pipe_through([:openapi])
