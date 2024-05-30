@@ -162,6 +162,7 @@ defmodule ArkeServer.Router do
     # -------- POST --------
 
     post("/:arke_id/unit", ArkeController, :create)
+    post("/:arke_id/bulk/unit", ArkeController, :create_bulk)
 
     post("/:arke_id/parameter/:arke_parameter_id", TopologyController, :add_parameter)
 

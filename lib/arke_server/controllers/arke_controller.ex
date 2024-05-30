@@ -88,6 +88,71 @@ defmodule ArkeServer.ArkeController do
     end
   end
 
+  @doc """
+  Bulk Creates units
+  """
+  def create_bulk(%Plug.Conn{body_params: params} = conn, %{"arke_id" => id}) do
+    # all arkes struct and gen server are on :arke_system so it won't be changed to project
+    project = conn.assigns[:arke_project]
+
+    arke = ArkeManager.get(String.to_atom(id), project)
+
+    # TODO handle query parameter with plugs
+    load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+    load_files = Map.get(conn.query_params, "load_files", "false") == "true"
+
+    case is_bulk_body_valid?(params) do
+      false ->
+        ResponseManager.send_resp(conn, 400, nil, "Invalid bulk body")
+
+      true ->
+        QueryManager.create_bulk(
+          project,
+          arke,
+          params["data"],
+          runtime_data: %{conn: conn}
+        )
+        |> case do
+          {:ok, valid, errors} ->
+            parsed_errors =
+              Enum.map(errors, fn {unit, msg} ->
+                %{
+                  data:
+                    StructManager.encode(unit,
+                      load_links: load_links,
+                      load_values: load_values,
+                      load_files: load_files,
+                      type: :json
+                    ),
+                  error: msg
+                }
+              end)
+
+            ResponseManager.send_resp(conn, 200, %{
+              content: %{
+                items:
+                  StructManager.encode(valid,
+                    load_links: load_links,
+                    load_values: load_values,
+                    load_files: load_files,
+                    type: :json
+                  ),
+                errors: parsed_errors
+              }
+            })
+
+          {:error, error} ->
+            ResponseManager.send_resp(conn, 400, nil, error)
+        end
+    end
+  end
+
+  defp is_bulk_body_valid?(%{"data" => data} = _params) when is_list(data),
+    do: Enum.all?(data, fn item -> is_map(item) end)
+
+  defp is_bulk_body_valid?(params), do: false
+
   # delete
   @doc """
   Delete a unit
