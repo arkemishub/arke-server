@@ -150,6 +150,7 @@ defmodule ArkeServer.Router do
 
     # UNIT
     put("/:arke_id/unit/:unit_id", UnitController, :update)
+    put("/:arke_id/bulk/unit", UnitController, :update_bulk)
 
     put("/:arke_id/parameter/:arke_parameter_id", TopologyController, :update_parameter)
 
