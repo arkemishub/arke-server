@@ -167,6 +167,51 @@ defmodule ArkeServer.ArkeController do
     end
   end
 
+  # delete bulk
+  @doc """
+  Delete a list of units
+  """
+  def delete_bulk(conn, %{"arke_id" => arke_id} = params) do
+    project = conn.assigns[:arke_project]
+
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
+    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+
+    unit_ids = Map.get(params, "id", [])
+
+    existing_units =
+      QueryManager.query(project: project, arke: arke_id)
+      |> QueryFilters.apply_query_filters(permission.filter)
+      |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
+      |> QueryManager.where(id__in: unit_ids)
+      |> QueryManager.all()
+
+    QueryManager.delete_bulk(project, existing_units)
+    |> case do
+      {:ok, valid, errors} ->
+        parsed_errors =
+          Enum.map(errors, fn {unit, msg} ->
+            %{
+              data:
+                StructManager.encode(unit,
+                  type: :json
+                ),
+              error: msg
+            }
+          end)
+
+        ResponseManager.send_resp(conn, 204, %{
+          content: %{
+            items: [],
+            errors: parsed_errors
+          }
+        })
+
+      {:error, error} ->
+        ResponseManager.send_resp(conn, 400, nil, error)
+    end
+  end
+
   @doc """
   Get units
   """

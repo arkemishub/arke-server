@@ -180,6 +180,7 @@ defmodule ArkeServer.Router do
       :delete_node
     )
 
+    delete("/:arke_id/unit/bulk", ArkeController, :delete_bulk)
     delete("/:arke_id/unit/:unit_id", ArkeController, :delete)
 
     # -------- CALL FUNCTION --------
