@@ -30,7 +30,7 @@ defmodule ArkeServer.AuthController do
   alias Arke.Utils.ErrorGenerator, as: Error
   alias Arke.Utils.DatetimeHandler
 
-  defp mailer_module(), do: Application.get_env(:arke_server, :mailer_module)
+  def mailer_module(), do: Application.get_env(:arke_server, :mailer_module)
 
   defp data_as_klist(data) do
     Enum.map(data, fn {key, value} -> {String.to_existing_atom(key), value} end)
@@ -354,7 +354,7 @@ defmodule ArkeServer.AuthController do
     end
   end
 
-  defp update_member_access_time(member, args \\ []) do
+  def update_member_access_time(member, args \\ []) do
     datetime_now = NaiveDateTime.utc_now()
     update_data = [last_access_time: datetime_now]
     update_data = if Map.get(member.data, :first_access_time, nil) == nil, do: Keyword.put(update_data, :first_access_time, datetime_now), else: update_data
