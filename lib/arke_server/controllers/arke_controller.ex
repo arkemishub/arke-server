@@ -162,7 +162,7 @@ defmodule ArkeServer.ArkeController do
 
     QueryManager.delete(project, conn.assigns[:unit])
     |> case do
-      {:ok, nil} -> ResponseManager.send_resp(conn, 204)
+      {:ok, _} -> ResponseManager.send_resp(conn, 204)
       {:error, error} -> ResponseManager.send_resp(conn, 400, nil, error)
     end
   end
@@ -188,24 +188,8 @@ defmodule ArkeServer.ArkeController do
 
     QueryManager.delete_bulk(project, existing_units)
     |> case do
-      {:ok, valid, errors} ->
-        parsed_errors =
-          Enum.map(errors, fn {unit, msg} ->
-            %{
-              data:
-                StructManager.encode(unit,
-                  type: :json
-                ),
-              error: msg
-            }
-          end)
-
-        ResponseManager.send_resp(conn, 204, %{
-          content: %{
-            items: [],
-            errors: parsed_errors
-          }
-        })
+      {:ok, _, _} ->
+        ResponseManager.send_resp(conn, 204)
 
       {:error, error} ->
         ResponseManager.send_resp(conn, 400, nil, error)
