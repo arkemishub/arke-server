@@ -106,29 +106,25 @@ defmodule ArkeServer.UnitController do
 
     QueryManager.update_bulk(project, arke, existing_units, params["data"])
     |> case do
-      {:ok, valid, errors} ->
-        parsed_errors =
-          Enum.map(errors, fn {unit, msg} ->
-            %{
-              data:
-                StructManager.encode(unit,
-                  load_links: load_links,
-                  load_values: load_values,
-                  type: :json
-                ),
-              error: msg
-            }
-          end)
-
-        ResponseManager.send_resp(conn, 200, %{
-          content: %{
-            items:
-              StructManager.encode(valid,
+      {:ok, updated_count, errors} ->
+        error_units =
+          Enum.map(errors, fn {unit, unit_errors} ->
+            Map.put(
+              StructManager.encode(unit,
                 load_links: load_links,
                 load_values: load_values,
                 type: :json
               ),
-            errors: parsed_errors
+              "errors",
+              unit_errors
+            )
+          end)
+
+        ResponseManager.send_resp(conn, 200, %{
+          content: %{
+            success_count: updated_count,
+            error_count: length(error_units),
+            error_units: error_units
           }
         })
 

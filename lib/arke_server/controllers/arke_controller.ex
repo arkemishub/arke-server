@@ -114,31 +114,26 @@ defmodule ArkeServer.ArkeController do
           runtime_data: %{conn: conn}
         )
         |> case do
-          {:ok, valid, errors} ->
-            parsed_errors =
-              Enum.map(errors, fn {unit, msg} ->
-                %{
-                  data:
-                    StructManager.encode(unit,
-                      load_links: load_links,
-                      load_values: load_values,
-                      load_files: load_files,
-                      type: :json
-                    ),
-                  error: msg
-                }
-              end)
-
-            ResponseManager.send_resp(conn, 200, %{
-              content: %{
-                items:
-                  StructManager.encode(valid,
+          {:ok, inserted_count, errors} ->
+            error_units =
+              Enum.map(errors, fn {unit, unit_errors} ->
+                Map.put(
+                  StructManager.encode(unit,
                     load_links: load_links,
                     load_values: load_values,
                     load_files: load_files,
                     type: :json
                   ),
-                errors: parsed_errors
+                  "errors",
+                  unit_errors
+                )
+              end)
+
+            ResponseManager.send_resp(conn, 200, %{
+              content: %{
+                success_count: inserted_count,
+                error_count: length(error_units),
+                error_units: error_units
               }
             })
 
