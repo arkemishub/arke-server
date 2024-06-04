@@ -33,7 +33,7 @@ defmodule ArkeServer.OAuthController do
   alias Arke.{QueryManager}
   alias Arke.Utils.ErrorGenerator, as: Error
   alias Arke.Core.Unit
-
+  alias ArkeServer.AuthController
   # This is the fallback if the given provider does not exists.
   # Usually it is used for the `identity` provider (username, password)
   def request(conn, _params) do
@@ -50,7 +50,10 @@ defmodule ArkeServer.OAuthController do
       ) do
     project = conn.assigns[:arke_project]
     case init_oauth_flow(project,auth, provider) do
-      {:ok, body} -> ResponseManager.send_resp(conn, 200, %{content: body})
+      {:ok, body,member} ->
+        AuthController.update_member_access_time(member, auth_token: nil)
+        AuthController.mailer_module().signin(conn,member, mode: "oauth")
+        ResponseManager.send_resp(conn, 200, %{content: body})
       {:error,[%{context: "auth", message: "unauthorized"}]=msg} -> ResponseManager.send_resp(conn, 401, msg)
       {:error, msg} -> ResponseManager.send_resp(conn, 400, msg)
     end
@@ -90,12 +93,14 @@ defmodule ArkeServer.OAuthController do
           {:ok,member} ->
             {:ok, resource_member, access_token, refresh_token} = Auth.create_tokens(member,"default")
             content = create_response_body(resource_member,access_token,refresh_token,false)
+            AuthController.mailer_module().signup(conn,resource_member, mode: "oauth",member: resource_member,response_body: content)
             ResponseManager.send_resp(conn, 200, content)
           err -> ResponseManager.send_resp(conn, 400, err)
         end
         # member exists and it is active
         {:ok, resource_member, access_token, refresh_token} ->
           content = create_response_body(resource_member,access_token,refresh_token,false)
+          AuthController.mailer_module().signup(conn,resource_member, mode: "oauth",member: resource_member,response_body: content)
           ResponseManager.send_resp(conn, 200, content)
         {:error, reason} ->
           {:error, reason}
@@ -131,7 +136,8 @@ defmodule ArkeServer.OAuthController do
       ) do
     project = conn.assigns[:arke_project]
     case init_oauth_flow(project,auth, provider) do
-      {:ok, body} -> ResponseManager.send_resp(conn, 200, %{content: body})
+      {:ok, body,_member} ->
+        ResponseManager.send_resp(conn, 200, %{content: body})
       {:error, msg} -> ResponseManager.send_resp(conn, 400, msg)
     end
   end
@@ -145,11 +151,12 @@ defmodule ArkeServer.OAuthController do
            #if member does not exists creat a SSO token
             {:ok,nil} -> {:ok, user, access_token, refresh_token} = Auth.create_tokens(user,"sso")
                 content = create_response_body(user,access_token,refresh_token,true)
-                {:ok, content}
+                {:ok, content,user}
                 # if exists and is active authenticate the user
             {:ok, resource_member, access_token, refresh_token} ->
+
               content = create_response_body(resource_member,access_token,refresh_token,false)
-              {:ok, content}
+              {:ok, content,resource_member}
            {:error, reason} ->
              {:error, reason}
          end
