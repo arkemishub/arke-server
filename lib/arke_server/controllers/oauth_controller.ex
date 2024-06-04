@@ -49,7 +49,7 @@ defmodule ArkeServer.OAuthController do
         _params
       ) do
     project = conn.assigns[:arke_project]
-    case init_oauth_flow(conn,project,auth, provider) do
+    case init_oauth_flow(project,auth, provider) do
       {:ok, body,member} ->
         AuthController.update_member_access_time(member, auth_token: nil)
         AuthController.mailer_module().signin(conn,member, mode: "oauth")
