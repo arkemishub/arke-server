@@ -50,8 +50,9 @@ defmodule ArkeServer.OAuthController do
       ) do
     project = conn.assigns[:arke_project]
     case init_oauth_flow(project,auth, provider) do
-      {:ok, body,member} ->
-        AuthController.update_member_access_time(member, auth_token: nil)
+      {:ok, body,oauth_member} ->
+        member = QueryManager.get_by(project: project, id: oauth_member.id)
+        AuthController.update_member_access_time(member)
         AuthController.mailer_module().signin(conn,member, mode: "oauth")
         ResponseManager.send_resp(conn, 200, %{content: body})
       {:error,[%{context: "auth", message: "unauthorized"}]=msg} -> ResponseManager.send_resp(conn, 401, msg)
