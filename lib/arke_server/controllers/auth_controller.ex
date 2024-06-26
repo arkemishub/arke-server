@@ -295,12 +295,7 @@ defmodule ArkeServer.AuthController do
             ResponseManager.send_resp(conn, 401, nil, "Unauthorized")
           end
         else
-          QueryManager.get_by(
-            project: project,
-            arke: "otp",
-            id: Otp.parse_otp_id("signin", member.id),
-            action: "signin"
-          )
+          OtpManager.get_code(project,member,"signin")
           |> case do
             nil ->
               ResponseManager.send_resp(conn, 401, nil, "Unauthorized")
@@ -316,7 +311,7 @@ defmodule ArkeServer.AuthController do
                       ResponseManager.send_resp(conn, 410, nil, "Gone")
 
                     :gt ->
-                      QueryManager.delete(project, otp_unit)
+                      OtpManager.delete_otp(otp_unit)
                       handle_signin(conn, username, password, project)
                   end
 
