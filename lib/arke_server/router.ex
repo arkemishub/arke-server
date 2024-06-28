@@ -194,7 +194,7 @@ defmodule ArkeServer.Router do
     post("/group/:group_id/function/:function_name", GroupController, :call_group_function)
 
     # -------- PARAMETER --------
-    get("/parameter/:parameter_id", ParameterController, :get_parameter_value)
+    get("/parameter/:parameter_id", ParameterController, :get_parameter)
     post("/parameter/:parameter_id", ParameterController, :add_link_parameter_value)
     put("/parameter/:parameter_id", ParameterController, :update_parameter_value)
     delete("/parameter/:parameter_id/:unit_id", ParameterController, :remove_link_parameter_value)

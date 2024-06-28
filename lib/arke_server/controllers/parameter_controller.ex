@@ -26,9 +26,8 @@ defmodule ArkeServer.ParameterController do
   @doc """
        Get parameter value
        """
-  def get_parameter_value(conn, %{"parameter" => parameter_id}) do
+  def get_parameter(conn, %{"parameter_id" => parameter_id}) do
     project = conn.assigns[:arke_project]
-    unit = conn.assigns[:unit]
 
     # TODO handle get parameter with plug
     parameter = ParameterManager.get(parameter_id, project)
@@ -40,17 +39,17 @@ defmodule ArkeServer.ParameterController do
     # TODO handle query parameters with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+    load_files = Map.get(conn.query_params, "load_files", "false") == "true"
 
-    {count, units} = {0, []}
-    # QueryManager.query(project: project)
-    # |> QueryManager.link(unit, depth)
-    # |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
-    # |> QueryOrder.apply_order(order)
-    # |> QueryManager.pagination(offset, limit)
 
     ResponseManager.send_resp(conn, 200, %{
-      count: count,
-      items: StructManager.encode(units, load_links: load_links, load_values: load_values, type: :json)
+      content:
+        StructManager.encode(parameter,
+          load_links: load_links,
+          load_values: load_values,
+          load_files: load_files,
+          type: :json
+        )
     })
   end
 
