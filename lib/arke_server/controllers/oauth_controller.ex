@@ -52,8 +52,7 @@ defmodule ArkeServer.OAuthController do
     case init_oauth_flow(project,auth, provider) do
       {:ok, body,oauth_member} ->
         member = QueryManager.get_by(project: project, id: oauth_member.id)
-        AuthController.update_member_access_time(member)
-        AuthController.mailer_module().signin(conn,member, mode: "oauth")
+        handle_member_login(conn,member)
         ResponseManager.send_resp(conn, 200, %{content: body})
       {:error,[%{context: "auth", message: "unauthorized"}]=msg} -> ResponseManager.send_resp(conn, 401, msg)
       {:error, msg} -> ResponseManager.send_resp(conn, 400, msg)
@@ -297,5 +296,11 @@ defmodule ArkeServer.OAuthController do
       {:error, [%{context: "auth", message: "member not exists"}]} -> {:ok,nil} # if not exists return {:ok,nil}
       {:error, _msg} ->  Error.create(:auth, "unauthorized")
     end
+  end
+
+  defp handle_member_login(_conn,nil), do: nil
+  defp handle_member_login(conn,member) do
+    AuthController.update_member_access_time(member)
+    AuthController.mailer_module().signin(conn,member, mode: "oauth")
   end
 end
