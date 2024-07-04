@@ -180,7 +180,9 @@ defmodule ArkeServer.AuthController do
            "arke_system_user" => %{"username" => username},
            "email" => _email,
            "first_name" => _first_name,
-           "last_name" => _last_name
+           "last_name" => _last_name,
+           "phone" => _phone,
+           "channel" => channel
          } = params,
          project,
          "otp_mail"
@@ -188,12 +190,29 @@ defmodule ArkeServer.AuthController do
        when is_nil(otp) do
     case Otp.generate(project, username, "signup") do
       {:ok, otp} ->
-        mailer_module().signup(conn, params, mode: "otp", unit: otp,code: otp.data.code)
+        case channel do
+          "mail" -> mailer_module().signup(conn, params, mode: "otp", unit: otp, code: otp.data.code)
+          "sms" -> mailer_module().signup(conn, params, mode: "otp_sms", unit: otp, code: otp.data.code)
+        end
         ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
       {:error, errors} ->
         ResponseManager.send_resp(conn, 401, nil, errors)
     end
   end
+  defp handle_signup_mode(
+         conn,
+         arke,
+         %{
+           "otp" => otp,
+           "arke_system_user" => %{"username" => username},
+           "email" => _email,
+           "first_name" => _first_name,
+           "last_name" => _last_name
+         } = params,
+         project,
+         "otp_mail"
+       )
+       when is_nil(otp), do: handle_signup_mode(conn, arke, Map.merge(params, %{"phone" => nil, "channel" => "mail"}), project, "otp_mail")
 
   defp handle_signup_mode(
          conn,
@@ -331,7 +350,7 @@ defmodule ArkeServer.AuthController do
 
   defp handle_signin_mode(
          conn,
-         %{"username" => username, "password" => password, "otp" => otp},
+         %{"username" => username, "password" => password, "otp" => otp, "channel" => channel},
          project,
          "otp_mail"
        )
@@ -345,6 +364,7 @@ defmodule ArkeServer.AuthController do
           id: member.id,
           arke_system_user: member.data.arke_system_user,
           email: member.data.email,
+          phone: hide_phone_number(member.data.phone),
           inactive: Map.get(member.data, :inactive, false)
         }
 
@@ -357,9 +377,11 @@ defmodule ArkeServer.AuthController do
         else
           case Otp.generate(project, member.id, "signin") do
             {:ok, otp} ->
-              mailer_module().signin(conn,member,mode: "otp", unit: otp,code: otp.data.code)
+              case channel do
+                "mail" -> mailer_module().signin(conn, member, mode: "otp", unit: otp, code: otp.data.code)
+                "sms" -> mailer_module().signin(conn, member, mode: "otp_sms", unit: otp, code: otp.data.code)
+              end
               ResponseManager.send_resp(conn, 200, data, "OTP send successfully")
-
             {:error, errors} ->
               ResponseManager.send_resp(conn, 401, nil, errors)
           end
@@ -368,6 +390,15 @@ defmodule ArkeServer.AuthController do
       {:error, error} ->
         ResponseManager.send_resp(conn, 401, nil, error)
     end
+  end
+  defp handle_signin_mode(
+         conn,
+         %{"username" => username, "password" => password, "otp" => otp} = params,
+         project,
+         "otp_mail"
+       )
+       when is_nil(otp) do
+    handle_signin_mode(conn, Map.merge(params, %{"channel" => "mail"}), project, "otp_mail")
   end
 
   defp handle_signin_mode(
@@ -629,7 +660,7 @@ defmodule ArkeServer.AuthController do
 
   defp handle_recover_password_mode(
          conn,
-         %{"email" => _email, "otp" => otp},
+         %{"email" => _email, "otp" => otp, "channel" => channel},
          %{metadata: %{project: project}} = member,
          "otp_mail"
        )
@@ -638,12 +669,24 @@ defmodule ArkeServer.AuthController do
 
     case Otp.generate(project, member.id, "reset_password") do
       {:ok, otp} ->
-        mailer_module().reset_password(conn,member,mode: "otp",unit: otp,code: otp.data.code)
+        case channel do
+          "mail" -> mailer_module().reset_password(conn,member,mode: "otp",unit: otp,code: otp.data.code)
+          "sms" -> mailer_module().reset_password(conn,member,mode: "otp_sms",unit: otp,code: otp.data.code)
+        end
         ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
 
       {:error, errors} ->
         ResponseManager.send_resp(conn, 401, nil, errors)
     end
+  end
+  defp handle_recover_password_mode(
+         conn,
+         %{"email" => _email, "otp" => otp} = params,
+         %{metadata: %{project: project}} = member,
+         "otp_mail"
+       )
+       when is_nil(otp) do
+    handle_recover_password_mode(conn, Map.merge(params, %{"channel" => "mail"}), member, "otp_mail")
   end
 
   defp handle_recover_password_mode(conn, _, _, "otp_mail"), do: params_required(conn, ["email","otp"])
@@ -798,5 +841,11 @@ defmodule ArkeServer.AuthController do
     param_msg = Enum.map(param,fn p -> "#{String.downcase(p)}" end) |> Enum.join(",")
     {:error,msg} = Error.create(:auth, "#{param_msg} required")
     ResponseManager.send_resp(conn, 400, msg)
+  end
+
+  defp hide_phone_number(nil), do: nil
+  defp hide_phone_number(phone_number) do
+    masked_part = String.duplicate("*", String.length(phone_number) - 3)
+    masked_part <> String.slice(phone_number, -3, 3)
   end
 end
