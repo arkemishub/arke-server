@@ -271,7 +271,7 @@ defmodule ArkeServer.AuthController do
         id: member.id,
         arke_system_user: member.data.arke_system_user,
         email: member.data.email,
-        phone: hide_phone_number(member.data.phone),
+        phone: hide_phone_number(Map.get(member.data, :phone, nil)),
         inactive: Map.get(member.data, :inactive, false)
         }
 
