@@ -39,7 +39,7 @@ defmodule ArkeServer.ErrorView do
 #      def render("422.json", assigns) do
 #         handle_error(assigns)
 #      end
-      def render(any_status, assigns) do
+      def render(any_status, %{reason: %ArkeError{}} = assigns) do
         {:error, err} = handle_error(assigns)
         err
       end
