@@ -80,6 +80,18 @@ defmodule ArkeServer do
     end
   end
 
+  defimpl Plug.Exception, for: Arke.Errors.ArkeError do
+    def status(%Arke.Errors.ArkeError{:type => type}) do
+      case type do
+        :unauthorized -> 401
+        :forbidden -> 403
+        :not_found -> 404
+        _ -> 400
+      end
+    end
+    def actions(_exception), do: []
+  end
+
   @doc """
   When used, dispatch to the appropriate controller/view/etc.
   """

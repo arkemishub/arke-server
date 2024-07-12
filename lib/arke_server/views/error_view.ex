@@ -49,7 +49,7 @@ defmodule ArkeServer.ErrorView do
         err
       end
 
-      def handle_error(%{reason: %ArkeError{:context => context, :errors => errors, :plug_status => status} = arke_error} = assigns) do
+      def handle_error(%{reason: %ArkeError{:context => context, :errors => errors, :type => type} = arke_error} = assigns) do
         log_error_message(assigns, arke_error)
         ErrorGenerator.create(context, errors)
       end
@@ -58,11 +58,13 @@ defmodule ArkeServer.ErrorView do
         ErrorGenerator.create(:generic, assigns.reason)
       end
 
-      defp log_error_message(assigns, %ArkeError{:context => context, :plug_status => status}) do
-        context = "\t ########  Error #{status} in #{to_string(context)}  ########\n"
+      defp log_error_message(assigns, context \\ "")
+
+      defp log_error_message(assigns, %ArkeError{:context => context, :type => type}) do
+        context = "\t ########  Error :#{to_string(type)} in #{to_string(context)}  ########\n"
         log_error_message(assigns, context)
       end
-      defp log_error_message(assigns, context \\ "") do
+      defp log_error_message(assigns, context) do
         [{first_module_of_stack, _, _, _} | _] = assigns.stack
         message = "running #{first_module_of_stack} terminated\n"
         message = message <> context
