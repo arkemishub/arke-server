@@ -35,39 +35,15 @@ defmodule ArkeServer.ErrorView do
       alias Arke.Errors.ArkeError
       alias Arke.Utils.ErrorGenerator
 
-      # TO CATCH SPECIFIC ERROR STATUS
-#      def render("422.json", assigns) do
-#         handle_error(assigns)
-#      end
-      def render(any_status, %{reason: %ArkeError{}} = assigns) do
-        {:error, err} = handle_error(assigns)
-        err
+      def render(any_status, %{reason: %ArkeError{error_message: msg}=error} = assigns) do
+        log_error_message(assigns,ArkeError.message(error))
+        %{content: nil, messages: msg}
       end
 
-      def template_not_found(template, _assigns) do
-        {:error, err} = ErrorGenerator.create(:generic, "template not found")
-        err
-      end
-
-      def handle_error(%{reason: %ArkeError{:context => context, :errors => errors, :type => type} = arke_error} = assigns) do
-        log_error_message(assigns, arke_error)
-        ErrorGenerator.create(context, errors)
-      end
-      def handle_error(assigns) do
-        log_error_message(assigns)
-        ErrorGenerator.create(:generic, assigns.reason)
-      end
-
-      defp log_error_message(assigns, context \\ "")
-
-      defp log_error_message(assigns, %ArkeError{:context => context, :type => type}) do
-        context = "\t ########  Error :#{to_string(type)} in #{to_string(context)}  ########\n"
-        log_error_message(assigns, context)
-      end
-      defp log_error_message(assigns, context) do
+      defp log_error_message(assigns, error_message \\ "") do
         [{first_module_of_stack, _, _, _} | _] = assigns.stack
         message = "running #{first_module_of_stack} terminated\n"
-        message = message <> context
+        message = message <> error_message
         message = message <> Enum.reduce(assigns.stack, "", fn {module, function, fun_param, info}, acc ->
 #          file = Keyword.get(info, :file) #Used to take path of file in error
           line = Keyword.get(info, :line)
@@ -79,6 +55,5 @@ defmodule ArkeServer.ErrorView do
       end
     end
   end
-
 
 end
