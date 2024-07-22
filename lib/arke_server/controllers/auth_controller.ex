@@ -388,6 +388,7 @@ defmodule ArkeServer.AuthController do
   end
 
   defp hide_phone_number(nil), do: nil
+  defp hide_phone_number(""), do: nil
   defp hide_phone_number(phone_number) do
       masked_part = String.duplicate("*", String.length(phone_number) - 3)
       masked_part <> String.slice(phone_number, -3, 3)
