@@ -22,8 +22,10 @@ defmodule ArkeServer.OAuth.Provider.Microsoft do
 
   def handle_cleanup(conn), do: put_private(conn, @private_oauth_key, nil)
 
-  def handle_request(%Plug.Conn{body_params: %{"access_token"=> access_token}} = conn) do
-    with {:ok, data} <- verify_token(access_token) do
+
+  def handle_request(%Plug.Conn{body_params: %{"idToken" => token, "accessToken"=> access_token}} = conn) do
+    with {:ok, claims} <- verify_token(token),
+         {:ok, data} <- get_user_data(access_token) do
       put_private(conn, @private_oauth_key, data)
     else
       {:error, msg} ->
@@ -44,7 +46,7 @@ defmodule ArkeServer.OAuth.Provider.Microsoft do
     )
   end
 
-  defp verify_token(access_token) do
+  defp get_user_data(access_token) do
     url = "https://graph.microsoft.com/v1.0/me"
     headers = [{"Authorization", "Bearer #{access_token}"}]
 
@@ -59,4 +61,57 @@ defmodule ArkeServer.OAuth.Provider.Microsoft do
         {:error, reason}
     end
   end
+
+  defp verify_token(token) do
+    with {:ok, claims} <- decode_and_verify(token),
+         :ok <- validate_claims(claims) do
+      {:ok, claims}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp decode_and_verify(token) do
+    jwt = JOSE.JWT.peek(token)
+    case validate_signature(token) do
+      :ok -> {:ok, jwt.fields}
+      {:error, reason} -> {:error, reason}
+    end
+
+  end
+
+  defp validate_signature(jwt) do
+    case get_public_keys() do
+      {:ok, keys} ->
+        Enum.find_value(keys, {:error, "Invalid signature"}, fn key ->
+          if JOSE.JWT.verify(key, jwt) do
+            :ok
+          end
+        end)
+
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp get_public_keys do
+    uri = "https://login.microsoftonline.com/#{get_key("AZURE_TENANT_ID")}/discovery/v2.0/keys"
+    case HTTPoison.get(uri) do
+      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+        keys = body |> Jason.decode!() |> Map.get("keys")
+        {:ok, Enum.map(keys, &JOSE.JWK.from(&1))}
+
+      {:error, %HTTPoison.Error{reason: reason}} -> {:error, reason}
+    end
+  end
+
+  defp validate_claims(claims) do
+    cond do
+      claims["iss"] != "https://login.microsoftonline.com/#{get_key("AZURE_TENANT_ID")}/v2.0" -> {:error, "Invalid issuer"}
+      claims["tid"] != get_key("AZURE_TENANT_ID") -> {:error, "Invalid tenant"}
+      DatetimeHandler.from_unix(Map.get(claims, "exp", 0)) < DatetimeHandler.now(:datetime) -> {:error, "Token expired"}
+      true -> :ok
+    end
+  end
+
+  defp get_key(key), do: System.get_env(key, nil)
 end
