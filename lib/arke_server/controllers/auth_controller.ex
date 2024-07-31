@@ -30,7 +30,7 @@ defmodule ArkeServer.AuthController do
   alias Arke.Utils.ErrorGenerator, as: Error
   alias Arke.Utils.DatetimeHandler
 
-  defp mailer_module(), do: Application.get_env(:arke_server, :mailer_module)
+  def mailer_module(), do: Application.get_env(:arke_server, :mailer_module)
 
   defp data_as_klist(data) do
     Enum.map(data, fn {key, value} -> {String.to_existing_atom(key), value} end)
@@ -78,7 +78,9 @@ defmodule ArkeServer.AuthController do
            "arke_system_user" => %{"username" => username},
            "email" => _email,
            "first_name" => _first_name,
-           "last_name" => _last_name
+           "last_name" => _last_name,
+           "phone" => _phone,
+           "channel" => channel
          } = params,
          project,
          "otp_mail"
@@ -86,13 +88,29 @@ defmodule ArkeServer.AuthController do
        when is_nil(otp) do
     case Otp.generate(project, username, "signup") do
       {:ok, otp} ->
-        mailer_module().signup(conn, params, mode: "otp", unit: otp, code: otp.data.code)
+        case channel do
+          "mail" -> mailer_module().signup(conn, params, mode: "otp", unit: otp, code: otp.data.code)
+          "sms" -> mailer_module().signup(conn, params, mode: "otp_sms", unit: otp, code: otp.data.code)
+        end
         ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
-
       {:error, errors} ->
         ResponseManager.send_resp(conn, 401, nil, errors)
     end
-  end
+    end
+    defp handle_signup_mode(
+         conn,
+         arke,
+         %{
+           "otp" => otp,
+           "arke_system_user" => %{"username" => username},
+           "email" => _email,
+           "first_name" => _first_name,
+           "last_name" => _last_name
+         } = params,
+         project,
+         "otp_mail"
+       )
+       when is_nil(otp), do: handle_signup_mode(conn, arke, Map.merge(params, %{"phone" => nil, "channel" => "mail"}), project, "otp_mail")
 
   defp handle_signup_mode(
          conn,
@@ -141,49 +159,41 @@ defmodule ArkeServer.AuthController do
          project
        ) do
     {_, params} = Map.pop(req_params, "otp")
+    with {:ok, params, arke_system_user} <- check_user_on_signup(params, Map.get(params, "arke_system_user", nil)),
+         {:ok, _member} <- QueryManager.create(project, arke, data_as_klist(params))
+          do
+            username = Map.get(arke_system_user, "username", nil)
+            password = Map.get(arke_system_user, "password", nil)
+            Auth.validate_credentials(username, password, project)
+            |> case do
+                 {:ok, member, access_token, refresh_token} ->
+                   content =
+                     Map.merge(Arke.StructManager.encode(member, type: :json), %{
+                       access_token: access_token,
+                       refresh_token: refresh_token
+                     })
+                   mailer_module().signup(conn,params, member: member,response_body: content)
+                   ResponseManager.send_resp(conn, 200, %{content: content})
 
-    with {:ok, params, arke_system_user} <-
-           check_user_on_signup(params, Map.get(params, "arke_system_user", nil)),
-         {:ok, _member} <- QueryManager.create(project, arke, data_as_klist(params)) do
-      username = Map.get(arke_system_user, "username", nil)
-      password = Map.get(arke_system_user, "password", nil)
+                 {:error, error} ->
+                   ResponseManager.send_resp(conn, 401, nil, error)
+               end
+          else
+            ({:error, errors} -> ResponseManager.send_resp(conn, 400, errors))
+          end
 
-      Auth.validate_credentials(username, password, project)
-      |> case do
-        {:ok, member, access_token, refresh_token} ->
-          content =
-            Map.merge(Arke.StructManager.encode(member, type: :json), %{
-              access_token: access_token,
-              refresh_token: refresh_token
-            })
-
-          mailer_module().signup(conn, params, member: member, response_body: content)
-          ResponseManager.send_resp(conn, 200, %{content: content})
-
-        {:error, error} ->
-          ResponseManager.send_resp(conn, 401, nil, error)
-      end
-    else
-      {:error, errors} -> ResponseManager.send_resp(conn, 400, errors)
     end
-  end
 
-  defp check_user_on_signup(_params, arke_system_user)
-       when is_nil(arke_system_user) or arke_system_user == "" or arke_system_user == %{},
-       do: {:error, "arke_system_user is required"}
-
-  defp check_user_on_signup(params, arke_system_user) when is_binary(arke_system_user) do
+    defp check_user_on_signup(_params, arke_system_user) when is_nil(arke_system_user) or arke_system_user == "" or arke_system_user == %{}, do: {:error, "arke_system_user is required"}
+    defp check_user_on_signup(params, arke_system_user) when is_binary(arke_system_user) do
     case Jason.decode(arke_system_user) do
       {:ok, u} ->
         params = Map.merge(params, %{"arke_system_user" => u})
         {:ok, params, u}
-
-      {:error, _} ->
-        {:error, "arke_system_user is not a valid json"}
+      {:error, _} -> {:error, "arke_system_user is not a valid json"}
     end
-  end
-
-  defp check_user_on_signup(params, arke_system_user), do: {:ok, params, arke_system_user}
+    end
+    defp check_user_on_signup(params, arke_system_user), do: {:ok, params, arke_system_user}
 
   @doc """
   Signin a user
@@ -196,25 +206,22 @@ defmodule ArkeServer.AuthController do
     project = get_project(conn.assigns[:arke_project])
 
     case QueryManager.get_by(project: project, group: :arke_auth_member, auth_token: token) do
-      nil ->
-        ResponseManager.send_resp(conn, 401, "Unauthorized")
-
+      nil -> ResponseManager.send_resp(conn, 401, "Unauthorized")
       member ->
         with {:ok, access_token, _claims} <- ArkeAuth.Guardian.encode_and_sign(member, %{}),
-             {:ok, refresh_token, _claims} <-
-               ArkeAuth.Guardian.encode_and_sign(member, %{}, token_type: "refresh") do
+             {:ok, refresh_token, _claims} <- ArkeAuth.Guardian.encode_and_sign(member, %{}, token_type: "refresh")
+          do
           content =
             Map.merge(Arke.StructManager.encode(member, type: :json), %{
               access_token: access_token,
               refresh_token: refresh_token
             })
-
           update_member_access_time(member, auth_token: nil)
           ResponseManager.send_resp(conn, 200, %{content: content})
-        else
-          {:error, type} ->
-            ResponseManager.send_resp(conn, 401, "Unauthorized")
+        else {:error, type} ->
+          ResponseManager.send_resp(conn, 401, "Unauthorized")
         end
+
     end
   end
 
@@ -222,7 +229,6 @@ defmodule ArkeServer.AuthController do
   def signin(conn, %{"username" => username, "password" => password} = params) do
     project = get_project(conn.assigns[:arke_project])
     auth_mode = System.get_env("AUTH_MODE", "default")
-
     Auth.validate_credentials(username, password, project)
     |> case do
       {:ok, member, _access_token, _refresh_token} ->
@@ -238,7 +244,6 @@ defmodule ArkeServer.AuthController do
         ResponseManager.send_resp(conn, 401, messages)
     end
   end
-
   def signin(conn, _params), do: ResponseManager.send_resp(conn, 404, nil)
 
   defp handle_signin_mode(
@@ -249,12 +254,10 @@ defmodule ArkeServer.AuthController do
        ),
        do: handle_signin(conn, username, password, project)
 
-  defp handle_signin_mode(conn, _, _project, "default"),
-    do: params_required(conn, ["username", "password"])
-
+  defp handle_signin_mode(conn, _, _project, "default"), do: params_required(conn, ["username","password"])
   defp handle_signin_mode(
          conn,
-         %{"username" => username, "password" => password, "otp" => otp},
+         %{"username" => username, "password" => password, "otp" => otp, "channel" => channel},
          project,
          "otp_mail"
        )
@@ -262,34 +265,47 @@ defmodule ArkeServer.AuthController do
     Auth.validate_credentials(username, password, project)
     |> case do
       {:ok, member, _access_token, _refresh_token} ->
+
         data = %{
-          arke_id: member.arke_id,
-          id: member.id,
-          arke_system_user: member.data.arke_system_user,
-          email: member.data.email,
-          inactive: Map.get(member.data, :inactive, false)
+        arke_id: member.arke_id,
+        id: member.id,
+        arke_system_user: member.data.arke_system_user,
+        email: member.data.email,
+        phone: hide_phone_number(Map.get(member.data, :phone, nil)),
+        inactive: Map.get(member.data, :inactive, false)
         }
 
         reviewer = get_review_email()
 
         if username in reviewer do
           review_code = get_review_code()
-          mailer_module().signin(conn, member, mode: "otp", code: review_code)
+          mailer_module().signin(conn,member, mode: "otp", code: review_code)
           ResponseManager.send_resp(conn, 200, data, "OTP send successfully")
         else
           case Otp.generate(project, member.id, "signin") do
-            {:ok, otp} ->
-              mailer_module().signin(conn, member, mode: "otp", unit: otp, code: otp.data.code)
-              ResponseManager.send_resp(conn, 200, data, "OTP send successfully")
-
-            {:error, errors} ->
-              ResponseManager.send_resp(conn, 401, nil, errors)
+          {:ok, otp} ->
+            case channel do
+              "mail" -> mailer_module().signin(conn, member, mode: "otp", unit: otp, code: otp.data.code)
+              "sms" -> mailer_module().signin(conn, member, mode: "otp_sms", unit: otp, code: otp.data.code)
+            end
+            ResponseManager.send_resp(conn, 200, data, "OTP send successfully")
+          {:error, errors} ->
+            ResponseManager.send_resp(conn, 401, nil, errors)
           end
         end
 
       {:error, error} ->
         ResponseManager.send_resp(conn, 401, nil, error)
     end
+  end
+  defp handle_signin_mode(
+         conn,
+         %{"username" => username, "password" => password, "otp" => otp} = params,
+         project,
+         "otp_mail"
+       )
+       when is_nil(otp) do
+    handle_signin_mode(conn, Map.merge(params, %{"channel" => "mail"}), project, "otp_mail")
   end
 
   defp handle_signin_mode(
@@ -302,7 +318,6 @@ defmodule ArkeServer.AuthController do
     |> case do
       {:ok, member, _access_token, _refresh_token} ->
         reviewer = get_review_email()
-
         if username in reviewer do
           if otp == get_review_code() do
             handle_signin(conn, username, password, project)
@@ -310,12 +325,7 @@ defmodule ArkeServer.AuthController do
             ResponseManager.send_resp(conn, 401, nil, "Unauthorized")
           end
         else
-          QueryManager.get_by(
-            project: project,
-            arke: "otp",
-            id: Otp.parse_otp_id("signin", member.id),
-            action: "signin"
-          )
+          OtpManager.get_code(project,member,"signin")
           |> case do
             nil ->
               ResponseManager.send_resp(conn, 401, nil, "Unauthorized")
@@ -331,7 +341,7 @@ defmodule ArkeServer.AuthController do
                       ResponseManager.send_resp(conn, 410, nil, "Gone")
 
                     :gt ->
-                      QueryManager.delete(project, otp_unit)
+                      OtpManager.delete_otp(otp_unit)
                       handle_signin(conn, username, password, project)
                   end
 
@@ -346,8 +356,7 @@ defmodule ArkeServer.AuthController do
     end
   end
 
-  defp handle_signin_mode(conn, _, _project, "otp_mail"),
-    do: params_required(conn, ["username", "password", "otp"])
+  defp handle_signin_mode(conn, _, _project, "otp_mail"), do: params_required(conn, ["username","password","otp"])
 
   defp handle_signin_mode(conn, _, _project, _), do: auth_not_active(conn)
 
@@ -370,17 +379,19 @@ defmodule ArkeServer.AuthController do
     end
   end
 
-  defp update_member_access_time(member, args \\ []) do
+  def update_member_access_time(member, args \\ []) do
     datetime_now = NaiveDateTime.utc_now()
     update_data = [last_access_time: datetime_now]
-
-    update_data =
-      if Map.get(member.data, :first_access_time, nil) == nil,
-        do: Keyword.put(update_data, :first_access_time, datetime_now),
-        else: update_data
-
+    update_data = if Map.get(member.data, :first_access_time, nil) == nil, do: Keyword.put(update_data, :first_access_time, datetime_now), else: update_data
     update_data = Keyword.merge(update_data, args)
     QueryManager.update(member, update_data)
+  end
+
+  defp hide_phone_number(nil), do: nil
+  defp hide_phone_number(""), do: nil
+  defp hide_phone_number(phone_number) do
+      masked_part = String.duplicate("*", String.length(phone_number) - 3)
+      masked_part <> String.slice(phone_number, -3, 3)
   end
 
   @doc """
@@ -426,7 +437,6 @@ defmodule ArkeServer.AuthController do
         handle_change_password_mode(conn, params, member, auth_mode)
     end
   end
-
   def change_password(conn, _), do: ResponseManager.send_resp(conn, 400, nil)
 
   defp handle_change_password_mode(
@@ -437,8 +447,7 @@ defmodule ArkeServer.AuthController do
        ),
        do: handle_change_password(conn, member, old_pwd, new_pwd)
 
-  defp handle_change_password_mode(conn, _, _, _mode),
-    do: params_required(conn, ["old_password", "password"])
+  defp handle_change_password_mode(conn, _, _, _mode), do: params_required(conn, ["old_password","password"])
 
   defp handle_change_password_mode(conn, _, _, _), do: auth_not_active(conn)
 
@@ -468,21 +477,20 @@ defmodule ArkeServer.AuthController do
 
     case QueryManager.get_by(project: project, group_id: :arke_auth_member, email: email) do
       nil ->
-        {:error, msg} = Error.create(:auth, "member not found with given email")
+        {:error,msg} = Error.create(:auth, "member not found with given email")
         ResponseManager.send_resp(conn, 404, msg)
 
       member ->
         case member.arke_id do
           :super_admin ->
             handle_recover_password(conn, member, params)
-
           _ ->
             handle_recover_password_mode(conn, params, member, auth_mode)
         end
     end
   end
-
   def recover_password(conn, _), do: ResponseManager.send_resp(conn, 400, nil)
+
 
   defp handle_recover_password_mode(
          conn,
@@ -493,36 +501,46 @@ defmodule ArkeServer.AuthController do
        do: handle_recover_password(conn, email, "default")
 
   defp handle_recover_password_mode(conn, _, _, "default"), do: params_required(conn, ["email"])
-
   defp handle_recover_password_mode(
          conn,
-         %{"email" => _email, "otp" => otp},
+         %{"email" => _email, "otp" => otp, "channel" => channel},
          %{metadata: %{project: project}} = member,
          "otp_mail"
        )
        when is_nil(otp) do
+
     case Otp.generate(project, member.id, "reset_password") do
       {:ok, otp} ->
-        mailer_module().reset_password(conn, member, mode: "otp", unit: otp, code: otp.data.code)
-
+        case channel do
+          "mail" -> mailer_module().reset_password(conn,member,mode: "otp",unit: otp,code: otp.data.code)
+          "sms" -> mailer_module().reset_password(conn,member,mode: "otp_sms",unit: otp,code: otp.data.code)
+        end
         ResponseManager.send_resp(conn, 200, %{content: "OTP send successfully"})
 
       {:error, errors} ->
         ResponseManager.send_resp(conn, 401, nil, errors)
     end
   end
+  defp handle_recover_password_mode(
+         conn,
+         %{"email" => _email, "otp" => otp} = params,
+         %{metadata: %{project: project}} = member,
+         "otp_mail"
+       )
+       when is_nil(otp) do
+    handle_recover_password_mode(conn, Map.merge(params, %{"channel" => "mail"}), member, "otp_mail")
+  end
 
-  defp handle_recover_password_mode(conn, _, _, "otp_mail"),
-    do: params_required(conn, ["email", "otp"])
-
+  defp handle_recover_password_mode(conn, _, _, "otp_mail"), do: params_required(conn, ["email","otp"])
   defp handle_recover_password_mode(conn, _, _, _), do: auth_not_active(conn)
+
+
 
   defp handle_recover_password(conn, email, "default") do
     default_msg = "An email has been sent to the given email"
-
     case QueryManager.get_by(email: email, arke_id: :user, project: :arke_system) do
       nil ->
-        ResponseManager.send_resp(conn, 200, default_msg)
+        ResponseManager.send_resp(conn, 200,default_msg )
 
       user ->
         old_token_list =
@@ -542,13 +560,7 @@ defmodule ArkeServer.AuthController do
           {:ok, unit} ->
             url_token = unit.data.token
             endpoint = "#{System.get_env("RESET_PASSWORD_ENDPOINT", "")}/#{url_token}"
-
-            mailer_module().reset_password(conn, user,
-              mode: "email",
-              unit: unit,
-              endpoint: endpoint
-            )
-
+            mailer_module().reset_password(conn,user,mode: "email", unit: unit, endpoint: endpoint)
             ResponseManager.send_resp(conn, 200, default_msg)
         end
     end
@@ -663,13 +675,13 @@ defmodule ArkeServer.AuthController do
   defp check_token_expiration(_token), do: Error.create(:auth, "invalid token")
 
   defp auth_not_active(conn) do
-    {:error, msg} = Error.create(:auth, "auth method not active")
+    {:error,msg} = Error.create(:auth, "auth method not active")
     ResponseManager.send_resp(conn, 400, msg)
   end
 
-  defp params_required(conn, param) do
-    param_msg = Enum.map(param, fn p -> "#{String.downcase(p)}" end) |> Enum.join(",")
-    {:error, msg} = Error.create(:auth, "#{param_msg} required")
+  defp params_required(conn,param) do
+    param_msg = Enum.map(param,fn p -> "#{String.downcase(p)}" end) |> Enum.join(", ")
+    {:error,msg} = Error.create(:auth, "#{param_msg} required")
     ResponseManager.send_resp(conn, 400, msg)
   end
 end
