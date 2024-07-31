@@ -18,7 +18,6 @@ defmodule ArkeServer.UnitController do
   # Openapi request definition
   use ArkeServer.Openapi.Spec, module: ArkeServer.Openapi.UnitControllerSpec
 
-
   alias Arke.{QueryManager, LinkManager, StructManager}
   alias Arke.Boundary.{ArkeManager, ParameterManager}
   alias UnitSerializer
@@ -31,8 +30,8 @@ defmodule ArkeServer.UnitController do
   import ArkeServer.ArkeController, only: [data_as_klist: 1]
 
   @doc """
-       Search units
-       """
+  Search units
+  """
   def search(conn, %{}) do
     project = conn.assigns[:arke_project]
     offset = Map.get(conn.query_params, "offset", 0)
@@ -52,8 +51,8 @@ defmodule ArkeServer.UnitController do
   end
 
   @doc """
-       Update an unit
-       """
+  Update an unit
+  """
   def update(%Plug.Conn{body_params: params} = conn, %{
         "unit_id" => _unit_id,
         "arke_id" => _arke_id
@@ -73,6 +72,60 @@ defmodule ArkeServer.UnitController do
               load_values: load_values,
               type: :json
             )
+        })
+
+      {:error, error} ->
+        ResponseManager.send_resp(conn, 400, nil, error)
+    end
+  end
+
+  @doc """
+  Update units in bulk
+  """
+  def update_bulk(%Plug.Conn{body_params: params} = conn, %{
+        "arke_id" => id
+      }) do
+    project = conn.assigns[:arke_project]
+    # TODO handle query parameter with plugs
+    load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+
+    arke = ArkeManager.get(String.to_atom(id), project)
+
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
+    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+
+    unit_ids = Enum.map(params["data"], fn unit -> Map.get(unit, "id") end)
+
+    existing_units =
+      QueryManager.query(project: project, arke: arke.id)
+      |> QueryFilters.apply_query_filters(permission.filter)
+      |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
+      |> QueryManager.where(id__in: unit_ids)
+      |> QueryManager.all()
+
+    QueryManager.update_bulk(project, arke, existing_units, params["data"])
+    |> case do
+      {:ok, updated_count, errors} ->
+        error_units =
+          Enum.map(errors, fn {unit, unit_errors} ->
+            Map.put(
+              StructManager.encode(unit,
+                load_links: load_links,
+                load_values: load_values,
+                type: :json
+              ),
+              "errors",
+              unit_errors
+            )
+          end)
+
+        ResponseManager.send_resp(conn, 200, %{
+          content: %{
+            success_count: updated_count,
+            error_count: length(error_units),
+            error_units: error_units
+          }
         })
 
       {:error, error} ->
