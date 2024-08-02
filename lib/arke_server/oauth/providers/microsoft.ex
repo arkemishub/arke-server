@@ -23,7 +23,7 @@ defmodule ArkeServer.OAuth.Provider.Microsoft do
   def handle_cleanup(conn), do: put_private(conn, @private_oauth_key, nil)
 
 
-  def handle_request(%Plug.Conn{body_params: %{"idToken" => token, "accessToken"=> access_token}} = conn) do
+  def handle_request(%Plug.Conn{body_params: %{"id_token" => token, "access_token"=> access_token}} = conn) do
     with {:ok, claims} <- verify_token(token),
          {:ok, data} <- get_user_data(access_token) do
       put_private(conn, @private_oauth_key, data)
