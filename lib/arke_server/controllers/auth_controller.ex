@@ -160,6 +160,7 @@ defmodule ArkeServer.AuthController do
 
     {_, params} = Map.pop(req_params, "otp")
     with {:ok, params, arke_system_user} <- check_user_on_signup(params, Map.get(params, "arke_system_user", nil)),
+         params = Map.put(params, "last_access_time", NaiveDateTime.utc_now()),
          {:ok, _member} <- QueryManager.create(project, arke, data_as_klist(params))
           do
             username = Map.get(arke_system_user, "username", nil)
