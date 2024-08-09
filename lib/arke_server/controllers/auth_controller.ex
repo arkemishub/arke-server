@@ -268,7 +268,7 @@ defmodule ArkeServer.AuthController do
   defp get_member(project, token) do
     case QueryManager.get_by(project: project, group: :arke_auth_member, id: token.data.link_member) do
       member -> {:ok, member}
-      _ -> {:error, Error.create(:auth, "member not found")}
+      _ -> Error.create(:auth, "member not found")
     end
   end
 
