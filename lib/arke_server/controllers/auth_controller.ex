@@ -260,7 +260,7 @@ defmodule ArkeServer.AuthController do
   end
   defp validate_temporary_token(token) do
     case NaiveDateTime.compare(token.data.expiration_datetime, NaiveDateTime.utc_now()) do
-      :lt -> {:error, Error.create(:auth, "token expired")}
+      :lt -> Error.create(:auth, "token expired")
       :gt -> {:ok, token}
     end
   end
