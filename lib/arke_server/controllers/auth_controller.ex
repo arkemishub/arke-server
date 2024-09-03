@@ -255,9 +255,8 @@ defmodule ArkeServer.AuthController do
     end
   end
 
-  defp manage_reusability(project, token) do
-    if token.data.is_reusable == false do QueryManager.delete(project, token) end
-  end
+  defp manage_reusability(project, %{data: %{is_reusable: false}}=token), do: QueryManager.delete(project, token)
+  defp manage_reusability(_project, _token), do: nil
   defp validate_temporary_token(token) do
     case NaiveDateTime.compare(token.data.expiration_datetime, NaiveDateTime.utc_now()) do
       :lt -> Error.create(:auth, "token expired")
