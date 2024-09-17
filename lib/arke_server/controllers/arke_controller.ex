@@ -88,6 +88,49 @@ defmodule ArkeServer.ArkeController do
     end
   end
 
+  @doc """
+  Bulk Creates units
+  """
+  def create_bulk(%Plug.Conn{body_params: params} = conn, %{"arke_id" => id}) do
+    # all arkes struct and gen server are on :arke_system so it won't be changed to project
+    project = conn.assigns[:arke_project]
+
+    arke = ArkeManager.get(String.to_atom(id), project)
+
+    # TODO handle query parameter with plugs
+    load_links = Map.get(conn.query_params, "load_links", "false") == "true"
+    load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+    load_files = Map.get(conn.query_params, "load_files", "false") == "true"
+
+    case is_bulk_body_valid?(params) do
+      false ->
+        ResponseManager.send_resp(conn, 400, nil, "Invalid bulk body")
+
+      true ->
+        QueryManager.create_bulk(
+          project,
+          arke,
+          params["data"],
+          runtime_data: %{conn: conn}
+        )
+        |> case do
+          {:ok, inserted_count, units, errors} ->
+            ResponseManager.send_resp(conn, 200, %{
+              content:
+                ArkeServer.Utils.Bulk.build_response_content(conn, inserted_count, units, errors)
+            })
+
+          {:error, error} ->
+            ResponseManager.send_resp(conn, 400, nil, error)
+        end
+    end
+  end
+
+  defp is_bulk_body_valid?(%{"data" => data} = _params) when is_list(data),
+    do: Enum.all?(data, fn item -> is_map(item) end)
+
+  defp is_bulk_body_valid?(params), do: false
+
   # delete
   @doc """
   Delete a unit
@@ -97,8 +140,37 @@ defmodule ArkeServer.ArkeController do
 
     QueryManager.delete(project, conn.assigns[:unit])
     |> case do
-      {:ok, nil} -> ResponseManager.send_resp(conn, 204)
+      {:ok, _} -> ResponseManager.send_resp(conn, 204)
       {:error, error} -> ResponseManager.send_resp(conn, 400, nil, error)
+    end
+  end
+
+  # delete bulk
+  @doc """
+  Delete a list of units
+  """
+  def delete_bulk(conn, %{"arke_id" => arke_id} = params) do
+    project = conn.assigns[:arke_project]
+
+    permission = conn.assigns[:permission_filter] || %{filter: nil}
+    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+
+    unit_ids = Map.get(params, "id", [])
+
+    existing_units =
+      QueryManager.query(project: project, arke: arke_id)
+      |> QueryFilters.apply_query_filters(permission.filter)
+      |> QueryFilters.apply_member_child_only(member, Map.get(permission, :child_only, false))
+      |> QueryManager.where(id__in: unit_ids)
+      |> QueryManager.all()
+
+    QueryManager.delete_bulk(project, existing_units)
+    |> case do
+      {:ok, _, _} ->
+        ResponseManager.send_resp(conn, 204)
+
+      {:error, error} ->
+        ResponseManager.send_resp(conn, 400, nil, error)
     end
   end
 

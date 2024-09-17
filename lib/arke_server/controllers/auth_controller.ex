@@ -14,8 +14,8 @@
 
 defmodule ArkeServer.AuthController do
   @moduledoc """
-             Documentation for `ArkeServer.AuthController`. Used from the controller and via API not from CLI
-             """
+  Documentation for `ArkeServer.AuthController`. Used from the controller and via API not from CLI
+  """
 
   use ArkeServer, :controller
 
@@ -147,7 +147,8 @@ defmodule ArkeServer.AuthController do
     end
   end
 
-  defp handle_signup_mode(conn, _, _, _project, "otp_mail"), do: params_required(conn, ["username","password","otp"])
+  defp handle_signup_mode(conn, _, _, _project, "otp_mail"),
+    do: params_required(conn, ["username", "password", "otp"])
 
   defp handle_signup_mode(conn, _, _, _project, _), do: auth_not_active(conn)
 
@@ -157,7 +158,6 @@ defmodule ArkeServer.AuthController do
          req_params,
          project
        ) do
-
     {_, params} = Map.pop(req_params, "otp")
     with {:ok, params, arke_system_user} <- check_user_on_signup(params, Map.get(params, "arke_system_user", nil)),
          params = Map.put(params, "last_access_time", NaiveDateTime.utc_now()),
@@ -513,7 +513,6 @@ defmodule ArkeServer.AuthController do
     end
   end
 
-
   @doc """
   Reset user password
   """
@@ -612,7 +611,6 @@ defmodule ArkeServer.AuthController do
         end
     end
   end
-
 
   def reset_password(conn, params) do
     project = get_project(conn.assigns[:arke_project])
