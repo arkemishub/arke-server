@@ -192,7 +192,7 @@ defmodule ArkeServer.OAuthController do
     oauth_user_data = %{
       first_name: auth.info.first_name,
       last_name: auth.info.last_name,
-      email: email,
+      email: String.downcase(email),
       oauth_id: oauth_id,
       username: username
     }
