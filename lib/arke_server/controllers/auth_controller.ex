@@ -443,11 +443,12 @@ defmodule ArkeServer.AuthController do
   @doc """
   Refresh the JWT tokens. Returns 200 and the tokes if ok
   """
-  def refresh(conn, _) do
-    user = ArkeAuth.Guardian.Plug.current_resource(conn)
-    token = ArkeAuth.Guardian.Plug.current_token(conn)
+  def refresh(conn, %{"refresh_token" => refresh_token}) do
+    auth_conn = ArkeServer.Plugs.AuthPipeline.call(conn, [])
+    user = ArkeAuth.Guardian.Plug.current_resource(auth_conn)
 
-    Auth.refresh_tokens(user, token)
+
+    Auth.refresh_tokens(user, refresh_token)
     |> case do
       {:ok, access_token, refresh_token} ->
         ResponseManager.send_resp(conn, 200, %{
@@ -458,7 +459,10 @@ defmodule ArkeServer.AuthController do
         ResponseManager.send_resp(conn, 400, nil, error)
     end
   end
-
+  def refresh(conn, _params) do
+    {:error, msg} = Error.create(:auth, "missing 'refresh_token' params")
+    ResponseManager.send_resp(conn,400,msg)
+    end
   @doc """
   Verify if the token is still valid. Returns 200 if true
     - conn => %Plug.Conn{}
