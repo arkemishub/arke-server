@@ -56,6 +56,12 @@ defmodule ArkeServer.Router do
     plug(ArkeServer.Plugs.Permission)
   end
 
+  #todo: refactor router to divide permission and auth
+  pipeline :tmp_auth_pipe do
+    plug(:accepts, ["json", "multipart"])
+    plug(ArkeServer.Plugs.AuthPipeline)
+  end
+
   pipeline :project do
     plug(ArkeServer.Plugs.GetProject)
     plug(ArkeServer.Plugs.BuildFilters)
@@ -131,6 +137,11 @@ defmodule ArkeServer.Router do
       put("/unit/:unit_id", ProjectController, :update)
       post("/unit", ProjectController, :create)
       delete("/unit/:unit_id", ProjectController, :delete)
+    end
+
+    scope "/backoffice" do
+      pipe_through([:tmp_auth_pipe])
+      get("/export_arke_db_stucture", BackofficeController, :export_arke_db_stucture)
     end
 
     # ↑ Do not need arke-project-key
