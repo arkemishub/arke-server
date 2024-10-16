@@ -139,9 +139,9 @@ defmodule ArkeServer.Router do
       delete("/unit/:unit_id", ProjectController, :delete)
     end
 
-    scope "/backoffice" do
+    scope "/arke_dev_function" do
       pipe_through([:tmp_auth_pipe])
-      get("/export_arke_db_stucture", BackofficeController, :export_arke_db_stucture)
+      get("/export_arke_db_stucture", ArkeDevFunctionController, :export_arke_db_stucture)
     end
 
     # ↑ Do not need arke-project-key

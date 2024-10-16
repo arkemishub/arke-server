@@ -1,4 +1,4 @@
-defmodule ArkeServer.BackofficeController do
+defmodule ArkeServer.ArkeDevFunctionController do
   use ArkeServer, :controller
   alias ArkeServer.ResponseManager
 
