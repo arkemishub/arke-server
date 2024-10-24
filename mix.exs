@@ -1,7 +1,7 @@
 defmodule ArkeServer.MixProject do
   use Mix.Project
 
-  @version "0.3.12"
+  @version "0.3.13"
   @scm_url "https://github.com/arkemishub/arke-server"
   @site_url "https://arkehub.com"
 
@@ -69,9 +69,9 @@ defmodule ArkeServer.MixProject do
       {:ymlr, "~> 2.0", only: :dev},
       {:excoveralls, "~> 0.10", only: :test},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      {:arke, "~> 0.3.2"},
-      {:arke_postgres, "~> 0.3.2"},
-      {:arke_auth, "~> 0.3.3"},
+      {:arke, "~> 0.3.11"},
+      {:arke_postgres, "~> 0.3.7"},
+      {:arke_auth, "~> 0.3.4"},
       {:hackney, "~> 1.18"},
       {:swoosh, "~> 1.11"}
     ])
