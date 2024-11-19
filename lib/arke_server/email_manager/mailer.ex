@@ -25,12 +25,14 @@ defmodule ArkeServer.Mailer do
 
       defp get_email_struct(opts) do
         sender = get_sender(opts)
+        cc = Map.get(opts, :cc, "")
         receiver = Map.fetch!(opts, :to)
         subject = Map.get(opts, :subject, "")
         text = Map.get(opts, :text, "")
         new()
         |> from(sender)
         |> to(receiver)
+        |> cc(cc)
         |> subject(subject)
         |> text_body(text)
         |> parse_option(Map.to_list(opts))
