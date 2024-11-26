@@ -23,8 +23,8 @@ defmodule ArkeServer.TopologyController do
        """
   def get_node(conn, %{"arke_id" => _arke_id, "arke_unit_id" => _id, "direction" => direction}) do
 
-    offset = Map.get(conn.query_params, "offset", nil)
-    limit = Map.get(conn.query_params, "limit", nil)
+    offset = Map.get(conn.query_params, "offset", 0)
+    limit = Map.get(conn.query_params, "limit", 100)
     order = Map.get(conn.query_params, "order", [])
 
     # TODO handle query parameter with plugs

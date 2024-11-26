@@ -101,8 +101,8 @@ defmodule ArkeServer.GroupController do
     project = conn.assigns[:arke_project]
     member = ArkeAuth.Guardian.Plug.current_resource(conn)
     permission = conn.assigns[:permission_filter] || %{filter: nil}
-    offset = Map.get(conn.query_params, "offset", nil)
-    limit = Map.get(conn.query_params, "limit", nil)
+    offset = Map.get(conn.query_params, "offset", 0)
+    limit = Map.get(conn.query_params, "limit", 100)
     order = Map.get(conn.query_params, "order", [])
 
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
