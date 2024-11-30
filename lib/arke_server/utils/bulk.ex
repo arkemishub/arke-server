@@ -8,17 +8,21 @@ defmodule ArkeServer.Utils.Bulk do
     return_units = Map.get(conn.query_params, "return_units", "false") == "true"
 
     error_units =
-      Enum.map(errors, fn {unit, unit_errors} ->
-        Map.put(
-          StructManager.encode(unit,
-            load_links: load_links,
-            load_values: load_values,
-            load_files: load_files,
-            type: :json
-          ),
-          "errors",
-          unit_errors
-        )
+      Enum.map(errors, fn
+        {unit, unit_errors} ->
+          Map.put(
+            StructManager.encode(unit,
+              load_links: load_links,
+              load_values: load_values,
+              load_files: load_files,
+              type: :json
+            ),
+            "errors",
+            unit_errors
+          )
+
+        error ->
+          error
       end)
 
     response = %{
