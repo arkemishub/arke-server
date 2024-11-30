@@ -175,6 +175,9 @@ defmodule ArkeServer.Router do
       :create_node
     )
 
+    post("/bulk/link", TopologyController, :create_node_bulk)
+    post("/bulk/link/:link_id", TopologyController, :create_node_bulk)
+
     # -------- DELETE --------
     delete(
       "/:arke_id/unit/:arke_unit_id/link/:link_id/:arke_id_two/unit/:unit_id_two",
@@ -184,6 +187,9 @@ defmodule ArkeServer.Router do
 
     delete("/:arke_id/unit/bulk", ArkeController, :delete_bulk)
     delete("/:arke_id/unit/:unit_id", ArkeController, :delete)
+
+    delete("/bulk/link", TopologyController, :delete_node_bulk)
+    delete("/bulk/link/:link_id", TopologyController, :delete_node_bulk)
 
     # -------- CALL FUNCTION --------
 
