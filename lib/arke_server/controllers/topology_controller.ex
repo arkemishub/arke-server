@@ -47,7 +47,7 @@ defmodule ArkeServer.TopologyController do
     project = conn.assigns[:arke_project]
     direction = String.to_existing_atom(direction)
     depth = Map.get(conn.query_params, "depth", nil)
-    link_type = Map.get(conn.query_params, "link_type", nil)
+    link_type = Map.get(conn.query_params, "link_type", "link")
 
     QueryManager.query(project: project)
     |> QueryManager.link(conn.assigns[:unit],
