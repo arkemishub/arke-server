@@ -63,15 +63,6 @@ defmodule ArkeServer.Mailer do
         parse_option(put_provider_option(email, k, v), t)
       end
 
-      # See https://hexdocs.pm/swoosh/Swoosh.Attachment.html
-      # doesn't work for send
-      # only set attachment in provider option
-      # todo: necessary or TO BE REMOVED
-#      defp parse_option(email, [{:attachments, v} | t]) when not is_nil(v) do
-#        attachment = Swoosh.Attachment.new(v)
-#        parse_option(attachment(email, attachment), t)
-#      end
-
       defp parse_option(email, [h | t]), do: parse_option(email, t)
 
       defp parse_option(email, nil), do: email
