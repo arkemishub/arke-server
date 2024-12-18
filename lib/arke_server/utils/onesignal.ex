@@ -13,8 +13,9 @@
 # limitations under the License.
 
 defmodule ArkeServer.Utils.OneSignal do
-  def create_user(%{metadata: %{project: project}}=member ) do
-    app_id = System.get_env("ONESIGNAL_APP_ID");
+  def create_user(%{metadata: %{project: project}} = member) do
+    app_id = System.get_env("ONESIGNAL_APP_ID")
+
     data = %{
       properties: %{
         tags: %{
@@ -28,31 +29,42 @@ defmodule ArkeServer.Utils.OneSignal do
         external_id: member.id
       }
     }
+
     call_api(:post, "/apps/#{app_id}/users", data)
   end
-  def create_notification(member, contents) when is_map(member), do: create_notification([member], contents)
+
+  def create_notification(member, contents) when is_map(member),
+    do: create_notification([member], contents)
+
   def create_notification(members, contents) when is_list(members) do
-    external_id = Enum.map(members, fn m -> Atom.to_string(m.id) end)
-    app_id = System.get_env("ONESIGNAL_APP_ID");
+    external_id = Enum.map(members, fn m -> to_string(m.id) end)
+    app_id = System.get_env("ONESIGNAL_APP_ID")
+
     data = %{
       app_id: app_id,
       target_channel: "push",
-      include_aliases: %{"external_id": external_id},
+      include_aliases: %{external_id: external_id},
       contents: contents
     }
+
     call_api(:post, "/notifications", data)
   end
 
   defp call_api(method, path, body, opts \\ []) do
     api_token = System.get_env("ONESIGNAL_API_KEY")
     url = "https://onesignal.com/api/v1#{path}"
+
     headers = [
       {"content-type", "application/json"},
       {"Authorization", "Basic #{api_token}"}
     ]
+
     body = Jason.encode!(body)
+
     case HTTPoison.request(method, url, body, headers, []) do
-      {:error, error} -> {:error, error}
+      {:error, error} ->
+        {:error, error}
+
       {:ok, response} ->
         case Jason.decode(response.body) do
           {:ok, body} -> body
