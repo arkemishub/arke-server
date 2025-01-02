@@ -37,7 +37,7 @@ defmodule ArkeServer.ErrorView do
 
       def render(any_status, %{reason: %ArkeError{error_message: msg}=error} = assigns) do
         log_error_message(assigns,ArkeError.message(error))
-        %{content: nil, messages: msg}
+        %{content: nil, message: msg}
       end
 
       defp log_error_message(assigns, error_message \\ "") do
