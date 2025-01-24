@@ -43,17 +43,26 @@ defmodule ArkeServer.ApiSpec do
   ######################################################################
 
   def custom_function_endpoint() do
-    swagger_module_prefix = Application.fetch_env!(:arke_server, :openapi_module)
-    {:ok, modules} = :application.get_key(Mix.Project.config()[:app], :modules)
+    swagger_module_prefix = Application.get_env(:arke_server, :openapi_module, nil)
 
-    modules
-    |> Enum.filter(&function_exported?(&1, :is_arke?, 0) or function_exported?(&1, :is_group?, 0))
-    |> Enum.flat_map(&extract_custom_functions(&1, swagger_module_prefix))
-    |> Enum.reduce(%{}, &build_function_map(&1, &2))
+    if is_nil(swagger_module_prefix) do
+      []
+    else
+      {:ok, modules} = :application.get_key(Mix.Project.config()[:app], :modules)
+
+      modules
+      |> Enum.filter(
+        &(function_exported?(&1, :is_arke?, 0) or function_exported?(&1, :is_group?, 0))
+      )
+      |> Enum.flat_map(&extract_custom_functions(&1, swagger_module_prefix))
+      |> Enum.reduce(%{}, &build_function_map(&1, &2))
+    end
   end
 
   defp extract_custom_functions(module, swagger_module_prefix) do
-    system_functions = Arke.System.Arke.__info__(:functions) ++ Arke.System.BaseGroup.__info__(:functions)
+    system_functions =
+      Arke.System.Arke.__info__(:functions) ++ Arke.System.BaseGroup.__info__(:functions)
+
     custom_functions = module.__info__(:functions) -- system_functions
 
     Enum.map(custom_functions, fn function ->
@@ -63,6 +72,7 @@ defmodule ArkeServer.ApiSpec do
 
   defp build_function_map({swagger_module, {fun, arity}}, acc) do
     IO.inspect(fun, label: swagger_module)
+
     if Code.ensure_loaded?(swagger_module) and function_exported?(swagger_module, fun, 0) do
       unit_path = get_unit_path(arity)
       arke_id = Module.split(swagger_module) |> List.last() |> pascal_to_snake()
@@ -93,7 +103,6 @@ defmodule ArkeServer.ApiSpec do
   ####################################################################
   #### END --- CREATE PATH FOR CUSTOM FUNCTIONS IN ARKE AND GROUP ####
   ####################################################################
-
 
   defp get_parameters() do
     %{

@@ -45,22 +45,6 @@ defmodule ArkeServer.Openapi.Spec do
         module.__info__(:functions)
         |> Enum.map(fn {func_name, _arity} -> to_string(func_name) end)
       end
-
-      defp library_module?(module) do
-        library_modules = ["Arke", "ArkeAuth", "ArkeServer", "ArkePostgres"]
-        String.starts_with?(to_string(module), Enum.map(library_modules, &"Elixir.#{&1}."))
-      end
-
-      defp get_operation_module(module) do
-        new_splitted_module =
-          Module.split(module)
-          |> Enum.map(&get_module_part(&1))
-
-        Module.concat(new_splitted_module)
-      end
-
-      defp get_module_part("Arke"), do: "Operation"
-      defp get_module_part(v), do: v
     end
   end
 end
