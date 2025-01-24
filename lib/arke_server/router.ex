@@ -51,6 +51,11 @@ defmodule ArkeServer.Router do
     plug(:put_secure_browser_headers)
   end
 
+  pipeline :browser_spex do
+    plug(:accepts, ["html"])
+    plug ArkeServer.Plugs.ContentSecurityPolicy
+  end
+
   pipeline :auth_api do
     plug(:accepts, ["json", "multipart"])
     plug(ArkeServer.Plugs.Permission)
@@ -78,6 +83,7 @@ defmodule ArkeServer.Router do
   # ------ OPENAPI -------
 
   scope "/lib/doc" do
+    pipe_through(:browser_spex)
     get("/swaggerui", OpenApiSpex.Plug.SwaggerUI, path: "/lib/doc/openapi")
 
     pipe_through([:openapi])
