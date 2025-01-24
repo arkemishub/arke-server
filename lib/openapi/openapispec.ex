@@ -38,37 +38,43 @@ defmodule ArkeServer.ApiSpec do
     |> OpenApiSpex.resolve_schema_modules()
   end
 
-  ################################################################
-
-  alias Arke.Boundary.ArkeManager
+  ######################################################################
+  #### START --- CREATE PATH FOR CUSTOM FUNCTIONS IN ARKE AND GROUP ####
+  ######################################################################
 
   def custom_function_endpoint() do
-    ArkeManager.get_all(:cx_tool)
-    |> Enum.map(fn {k, v} -> Map.get(ArkeManager.get(k, :cx_tool), :__module__) end)
-    |> Enum.filter(fn module -> not library_module?(module) end)
-    |> Enum.reduce([], fn project_module, acc ->
-      custom_functions =
-        project_module.__info__(:functions) -- Arke.System.Arke.__info__(:functions)
+    swagger_module_prefix = Application.fetch_env!(:arke_server, :openapi_module)
+    {:ok, modules} = :application.get_key(Mix.Project.config()[:app], :modules)
 
-      Enum.map(custom_functions, &{get_operation_module(project_module), &1}) ++ acc
+    modules
+    |> Enum.filter(&function_exported?(&1, :is_arke?, 0) or function_exported?(&1, :is_group?, 0))
+    |> Enum.flat_map(&extract_custom_functions(&1, swagger_module_prefix))
+    |> Enum.reduce(%{}, &build_function_map(&1, &2))
+  end
+
+  defp extract_custom_functions(module, swagger_module_prefix) do
+    system_functions = Arke.System.Arke.__info__(:functions) ++ Arke.System.BaseGroup.__info__(:functions)
+    custom_functions = module.__info__(:functions) -- system_functions
+
+    Enum.map(custom_functions, fn function ->
+      {get_swagger_module(swagger_module_prefix, module), function}
     end)
-    |> Enum.reduce(%{}, fn {operation_module, {fun, arity}}, acc ->
-      fun_operation = :"#{fun}_operation"
+  end
 
-      if Code.ensure_loaded?(operation_module) and
-           function_exported?(operation_module, fun_operation, 0) do
-        unit_path = if arity == 1, do: "", else: "/unit/{unit_id}"
-        arke_id = Module.split(operation_module) |> List.last() |> pascal_to_snake()
+  defp build_function_map({swagger_module, {fun, arity}}, acc) do
+    IO.inspect(fun, label: swagger_module)
+    if Code.ensure_loaded?(swagger_module) and function_exported?(swagger_module, fun, 0) do
+      unit_path = get_unit_path(arity)
+      arke_id = Module.split(swagger_module) |> List.last() |> pascal_to_snake()
 
-        Map.put(
-          acc,
-          to_string("lib/#{arke_id}#{unit_path}/function/#{fun}"),
-          get_schema(apply(operation_module, fun_operation, []))
-        )
-      else
-        acc
-      end
-    end)
+      Map.put(
+        acc,
+        to_string("/lib/#{arke_id}#{unit_path}/function/#{fun}"),
+        apply(swagger_module, fun, [])
+      )
+    else
+      acc
+    end
   end
 
   def pascal_to_snake(pascal) do
@@ -77,30 +83,17 @@ defmodule ArkeServer.ApiSpec do
     |> String.downcase()
   end
 
-  defp library_module?(module) do
-    library_modules = ["Arke", "ArkeAuth", "ArkeServer", "ArkePostgres"]
-    String.starts_with?(to_string(module), Enum.map(library_modules, &"Elixir.#{&1}."))
+  defp get_swagger_module(swagger_module_prefix, module) do
+    Module.concat(swagger_module_prefix, Module.split(module) |> List.last())
   end
 
-  defp get_operation_module(module) do
-    new_splitted_module =
-      Module.split(module)
-      |> Enum.map(&get_module_part(&1))
+  defp get_unit_path(1), do: "/unit/{unit_id}"
+  defp get_unit_path(_), do: ""
 
-    Module.concat(new_splitted_module)
-  end
+  ####################################################################
+  #### END --- CREATE PATH FOR CUSTOM FUNCTIONS IN ARKE AND GROUP ####
+  ####################################################################
 
-  defp get_module_part("Arke"), do: "Operation"
-  defp get_module_part(v), do: v
-
-  def get_schema(operation) do
-    %OpenApiSpex.PathItem{
-      get: operation,
-      post: operation
-    }
-  end
-
-  ################################################################
 
   defp get_parameters() do
     %{
