@@ -33,11 +33,74 @@ defmodule ArkeServer.ApiSpec do
         parameters: get_parameters()
       },
       # Populate the paths from a phoenix router
-      paths: Paths.from_router(Router)
+      paths: Map.merge(custom_function_endpoint(), Paths.from_router(Router))
     }
-    # Discover request/response schemas from path specs
     |> OpenApiSpex.resolve_schema_modules()
   end
+
+  ################################################################
+
+  alias Arke.Boundary.ArkeManager
+
+  def custom_function_endpoint() do
+    ArkeManager.get_all(:cx_tool)
+    |> Enum.map(fn {k, v} -> Map.get(ArkeManager.get(k, :cx_tool), :__module__) end)
+    |> Enum.filter(fn module -> not library_module?(module) end)
+    |> Enum.reduce([], fn project_module, acc ->
+      custom_functions =
+        project_module.__info__(:functions) -- Arke.System.Arke.__info__(:functions)
+
+      Enum.map(custom_functions, &{get_operation_module(project_module), &1}) ++ acc
+    end)
+    |> Enum.reduce(%{}, fn {operation_module, {fun, arity}}, acc ->
+      fun_operation = :"#{fun}_operation"
+
+      if Code.ensure_loaded?(operation_module) and
+           function_exported?(operation_module, fun_operation, 0) do
+        unit_path = if arity == 1, do: "", else: "/unit/{unit_id}"
+        arke_id = Module.split(operation_module) |> List.last() |> pascal_to_snake()
+
+        Map.put(
+          acc,
+          to_string("lib/#{arke_id}#{unit_path}/function/#{fun}"),
+          get_schema(apply(operation_module, fun_operation, []))
+        )
+      else
+        acc
+      end
+    end)
+  end
+
+  def pascal_to_snake(pascal) do
+    pascal
+    |> String.replace(~r/([a-z])([A-Z])/, "\\1_\\2")
+    |> String.downcase()
+  end
+
+  defp library_module?(module) do
+    library_modules = ["Arke", "ArkeAuth", "ArkeServer", "ArkePostgres"]
+    String.starts_with?(to_string(module), Enum.map(library_modules, &"Elixir.#{&1}."))
+  end
+
+  defp get_operation_module(module) do
+    new_splitted_module =
+      Module.split(module)
+      |> Enum.map(&get_module_part(&1))
+
+    Module.concat(new_splitted_module)
+  end
+
+  defp get_module_part("Arke"), do: "Operation"
+  defp get_module_part(v), do: v
+
+  def get_schema(operation) do
+    %OpenApiSpex.PathItem{
+      get: operation,
+      post: operation
+    }
+  end
+
+  ################################################################
 
   defp get_parameters() do
     %{

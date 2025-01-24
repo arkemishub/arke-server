@@ -25,7 +25,6 @@ defmodule ArkeServer.Openapi.Spec do
       alias Arke.Boundary.ArkeManager
       alias ArkeServer.Openapi.Responses
       alias OpenApiSpex.{Operation, Reference}
-      IO.inspect(__MODULE__, label: "Using Macro In Module")
 
       def open_api_operation(action) do
         apimodule = unquote(apimodule)
@@ -34,27 +33,7 @@ defmodule ArkeServer.Openapi.Spec do
           func_list = get_operation_list(apimodule)
           operation = "#{action}_operation"
 
-          if operation == "call_arke_function_operation" do
-            ArkeManager.get_all(:cx_tool)
-            |> Enum.map(fn {k, v} -> Map.get(ArkeManager.get(k, :cx_tool), :__module__) end)
-            |> Enum.filter(fn module -> not library_module?(module) end)
-            |> Enum.reduce([], fn project_module, acc ->
-              custom_functions = project_module.__info__(:functions) -- Arke.System.Arke.__info__(:functions)
-              Enum.map(custom_functions, &{get_operation_module(project_module), &1}) ++ acc
-            end)
-            |> Enum.map(fn {module, {fun, arity}} ->
-              fun_operation = :"#{fun}_operation"
-              if Code.ensure_loaded?(module) and function_exported?(module, fun_operation, 0) do
-                # IO.inspect(fun_operation, label: module)
-                apply(module, fun_operation, [])
-                # apply(apimodule, String.to_existing_atom(operation), [])
-              end
-            end)
-          end
-
           if operation in func_list do
-            # apply(CxToolBackend.Operation.Attendee, :send_attendee_email_operation, [])
-            # apply(ArkeServer.Openapi.ArkeControllerSpec, :get_unit_operation, [])
             apply(apimodule, String.to_existing_atom(operation), [])
           end
         end
@@ -70,11 +49,6 @@ defmodule ArkeServer.Openapi.Spec do
       defp library_module?(module) do
         library_modules = ["Arke", "ArkeAuth", "ArkeServer", "ArkePostgres"]
         String.starts_with?(to_string(module), Enum.map(library_modules, &"Elixir.#{&1}."))
-      end
-
-      defp library_module?(module) do
-        library_modules = ["Arke", "ArkeAuth", "ArkeServer", "ArkePostgres"]
-        String.starts_with?(to_string(module), Enum.map(["Arke", "ArkeAuth", "ArkeServer", "ArkePostgres"], &"Elixir.#{&1}."))
       end
 
       defp get_operation_module(module) do
