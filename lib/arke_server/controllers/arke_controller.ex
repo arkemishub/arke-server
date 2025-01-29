@@ -135,7 +135,7 @@ defmodule ArkeServer.ArkeController do
     project = conn.assigns[:arke_project]
     permission = conn.assigns[:permission_filter] || %{filter: nil}
 
-    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+    member = ArkeAuth.Guardian.get_member(conn, true)
 
     QueryManager.query(project: project, arke: arke_id)
     |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))

@@ -52,7 +52,7 @@ defmodule ArkeServer.Plugs.GetUnit do
 
   defp get_unit(conn, project, arke_id, unit_id) do
     permission = conn.assigns[:permission_filter] || %{filter: nil}
-    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+    member = ArkeAuth.Guardian.get_member(conn, true)
 
     unit =
       QueryManager.query(project: project, arke: arke_id)

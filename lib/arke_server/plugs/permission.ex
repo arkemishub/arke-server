@@ -19,7 +19,7 @@ defmodule ArkeServer.Plugs.Permission do
 
   def init(default), do: default
 
-  def call(%Plug.Conn{request_path: "/lib/auth/change_password"}=conn, _default) do
+  def call(%Plug.Conn{request_path: "/lib/auth/change_password"} = conn, _default) do
     get_auth_conn(conn)
   end
 
@@ -57,6 +57,7 @@ defmodule ArkeServer.Plugs.Permission do
     # todo: caipre cosa fare se arke_project non c'è,
     project = conn.assigns[:arke_project]
     action = parse_method(method)
+    IO.inspect(action, label: "Action")
 
     with {:ok, data} <- Permission.get_public_permission(arke_id, project),
          true <- is_permitted?(data, action) do
@@ -64,11 +65,12 @@ defmodule ArkeServer.Plugs.Permission do
     else
       _ ->
         auth_conn = get_auth_conn(conn)
+        IO.inspect(auth_conn)
 
         with %Plug.Conn{halted: false} <- auth_conn,
              {:ok, data} <-
                Permission.get_member_permission(
-                 ArkeAuth.Guardian.Plug.current_resource(auth_conn),
+                 ArkeAuth.Guardian.get_member(auth_conn, true),
                  arke_id,
                  project
                ),
@@ -79,7 +81,7 @@ defmodule ArkeServer.Plugs.Permission do
             get_permission_filter(
               auth_conn,
               data,
-              ArkeAuth.Guardian.Plug.current_resource(auth_conn)
+              ArkeAuth.Guardian.get_member(auth_conn, true)
             )
           )
         else
@@ -87,7 +89,7 @@ defmodule ArkeServer.Plugs.Permission do
             auth_conn
 
           _ ->
-            member = ArkeAuth.Guardian.Plug.current_resource(auth_conn) || %{data: %{}}
+            member = ArkeAuth.Guardian.get_member(auth_conn, true) || %{data: %{}}
 
             case Map.get(member.data, :subscription_active) do
               false -> halt_conn(conn, "payment required", 402)
@@ -97,7 +99,12 @@ defmodule ArkeServer.Plugs.Permission do
     end
   end
 
-  defp get_auth_conn(conn), do: ArkeServer.Plugs.AuthPipeline.call(conn, [])
+  defp get_auth_conn(conn) do
+    case get_impersonate_header(conn) do
+      {:ok, []} -> ArkeServer.Plugs.AuthPipeline.call(conn, [])
+      {:ok, _header} -> ArkeServer.Plugs.ImpersonateAuthPipeline.call(conn, [])
+    end
+  end
 
   defp halt_conn(conn, message, status) do
     {:error, msg} = Error.create(:auth, message)
@@ -124,4 +131,10 @@ defmodule ArkeServer.Plugs.Permission do
     do: String.replace(filter, "{{arke_member}}", to_string(member.id))
 
   defp get_member_filter(filter, _member), do: filter
+
+  defp get_impersonate_header(conn) do
+    header = get_req_header(conn, "impersonate-token")
+    IO.inspect(header, label: "Header")
+    {:ok, header}
+  end
 end

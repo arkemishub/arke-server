@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 ########################################################################
 ### STANDARD AUTH PIPELINE #############################################
 ########################################################################
 defmodule ArkeServer.Plugs.AuthPipeline do
   @moduledoc """
-             Pipeline To ensure that the user is always authenticated and authorized
-             """
+  Pipeline To ensure that the user is always authenticated and authorized
+  """
 
   use Guardian.Plug.Pipeline,
     otp_app: :arke_auth,
@@ -31,10 +30,34 @@ defmodule ArkeServer.Plugs.AuthPipeline do
   plug(Guardian.Plug.LoadResource)
 end
 
+defmodule ArkeServer.Plugs.ImpersonateAuthPipeline do
+  @moduledoc """
+  Pipeline to ensure authentication of user and impersonate user
+  """
+
+  use Guardian.Plug.Pipeline,
+    otp_app: :arke_auth,
+    module: ArkeAuth.Guardian,
+    error_handler: ArkeServer.ErrorHandlers.Auth
+
+  plug(Guardian.Plug.VerifyHeader, scheme: "Bearer")
+  plug(Guardian.Plug.EnsureAuthenticated)
+  plug(Guardian.Plug.LoadResource)
+
+  plug(Guardian.Plug.VerifyHeader,
+    scheme: "Bearer",
+    header_name: "impersonate-token",
+    key: "impersonate-user"
+  )
+
+  plug(Guardian.Plug.EnsureAuthenticated, key: :"impersonate-user")
+  plug(Guardian.Plug.LoadResource, key: :"impersonate-user")
+end
+
 defmodule ArkeServer.Plugs.NotAuthPipeline do
   @moduledoc """
-             Pipeline for all the non-authorized endpoints
-             """
+  Pipeline for all the non-authorized endpoints
+  """
   use Guardian.Plug.Pipeline,
     otp_app: :arke_auth,
     module: ArkeAuth.Guardian,
@@ -48,13 +71,13 @@ end
 ########################################################################
 defmodule ArkeServer.Plugs.SSOAuthPipeline do
   @moduledoc """
-             Pipeline to ensure the existence of an arke user from a sso jwt token
-             """
+  Pipeline to ensure the existence of an arke user from a sso jwt token
+  """
 
   use Guardian.Plug.Pipeline,
-      otp_app: :arke_auth,
-      module: ArkeAuth.SSOGuardian,
-      error_handler: ArkeServer.ErrorHandlers.SSOAuth
+    otp_app: :arke_auth,
+    module: ArkeAuth.SSOGuardian,
+    error_handler: ArkeServer.ErrorHandlers.SSOAuth
 
   plug(Guardian.Plug.VerifyHeader, scheme: "Bearer")
   plug(Guardian.Plug.EnsureAuthenticated)
@@ -63,12 +86,12 @@ end
 
 defmodule ArkeServer.Plugs.SSONotAuthPipeline do
   @moduledoc """
-             Pipeline for all the non-authorized endpoints
-             """
+  Pipeline for all the non-authorized endpoints
+  """
   use Guardian.Plug.Pipeline,
-      otp_app: :arke_auth,
-      module: ArkeAuth.SSOGuardian,
-      error_handler: ArkeServer.ErrorHandlers.SSOAuth
+    otp_app: :arke_auth,
+    module: ArkeAuth.SSOGuardian,
+    error_handler: ArkeServer.ErrorHandlers.SSOAuth
 
   plug(Guardian.Plug.EnsureNotAuthenticated)
 end
