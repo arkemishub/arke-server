@@ -110,8 +110,8 @@ defmodule ArkeServer.ArkeController do
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
     load_files = Map.get(conn.query_params, "load_files", "false") == "true"
-    offset = Map.get(conn.query_params, "offset", nil)
-    limit = Map.get(conn.query_params, "limit", nil)
+    offset = Map.get(conn.query_params, "offset", 0)
+    limit = Map.get(conn.query_params, "limit", 100)
     order = Map.get(conn.query_params, "order", [])
 
     {count, units} =
@@ -276,8 +276,8 @@ defmodule ArkeServer.ArkeController do
   """
   def get_groups(conn, %{"arke_id" => id}) do
     project = conn.assigns[:arke_project]
-    offset = Map.get(conn.query_params, "offset", nil)
-    limit = Map.get(conn.query_params, "limit", nil)
+    offset = Map.get(conn.query_params, "offset", 0)
+    limit = Map.get(conn.query_params, "limit", 100)
     order = Map.get(conn.query_params, "order", [])
     arke = ArkeManager.get(id, project)
 
