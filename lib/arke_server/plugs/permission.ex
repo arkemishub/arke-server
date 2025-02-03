@@ -57,7 +57,6 @@ defmodule ArkeServer.Plugs.Permission do
     # todo: caipre cosa fare se arke_project non c'è,
     project = conn.assigns[:arke_project]
     action = parse_method(method)
-    IO.inspect(action, label: "Action")
 
     with {:ok, data} <- Permission.get_public_permission(arke_id, project),
          true <- is_permitted?(data, action) do
@@ -65,7 +64,6 @@ defmodule ArkeServer.Plugs.Permission do
     else
       _ ->
         auth_conn = get_auth_conn(conn)
-        IO.inspect(auth_conn)
 
         with %Plug.Conn{halted: false} <- auth_conn,
              {:ok, data} <-
@@ -134,7 +132,6 @@ defmodule ArkeServer.Plugs.Permission do
 
   defp get_impersonate_header(conn) do
     header = get_req_header(conn, "impersonate-token")
-    IO.inspect(header, label: "Header")
     {:ok, header}
   end
 end
