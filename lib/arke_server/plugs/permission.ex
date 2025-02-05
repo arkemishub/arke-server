@@ -68,7 +68,7 @@ defmodule ArkeServer.Plugs.Permission do
         with %Plug.Conn{halted: false} <- auth_conn,
              {:ok, data} <-
                Permission.get_member_permission(
-                 ArkeAuth.Guardian.get_member(auth_conn, :impersonate),
+                 ArkeAuth.Guardian.get_member(auth_conn, impersonate: true),
                  arke_id,
                  project
                ),
@@ -79,7 +79,7 @@ defmodule ArkeServer.Plugs.Permission do
             get_permission_filter(
               auth_conn,
               data,
-              ArkeAuth.Guardian.get_member(auth_conn, :impersonate)
+              ArkeAuth.Guardian.get_member(auth_conn, impersonate: true)
             )
           )
         else
@@ -87,7 +87,7 @@ defmodule ArkeServer.Plugs.Permission do
             auth_conn
 
           _ ->
-            member = ArkeAuth.Guardian.get_member(auth_conn, :impersonate) || %{data: %{}}
+            member = ArkeAuth.Guardian.get_member(auth_conn, impersonate: true) || %{data: %{}}
 
             case Map.get(member.data, :subscription_active) do
               false -> halt_conn(conn, "payment required", 402)
