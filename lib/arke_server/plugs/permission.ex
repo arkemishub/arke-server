@@ -100,6 +100,7 @@ defmodule ArkeServer.Plugs.Permission do
   defp get_auth_conn(conn) do
     case get_impersonate_header(conn) do
       {:ok, []} -> ArkeServer.Plugs.AuthPipeline.call(conn, [])
+      {:ok, [""]} -> ArkeServer.Plugs.AuthPipeline.call(conn, [])
       {:ok, _header} -> ArkeServer.Plugs.ImpersonateAuthPipeline.call(conn, [])
     end
   end
