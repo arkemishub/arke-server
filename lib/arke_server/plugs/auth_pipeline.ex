@@ -47,11 +47,11 @@ defmodule ArkeServer.Plugs.ImpersonateAuthPipeline do
   plug(Guardian.Plug.VerifyHeader,
     scheme: "Bearer",
     header_name: "impersonate-token",
-    key: "impersonate-user"
+    key: "impersonate"
   )
 
-  plug(Guardian.Plug.EnsureAuthenticated, key: :"impersonate-user")
-  plug(Guardian.Plug.LoadResource, key: :"impersonate-user")
+  plug(Guardian.Plug.EnsureAuthenticated, key: :impersonate)
+  plug(Guardian.Plug.LoadResource, key: :impersonate)
 end
 
 defmodule ArkeServer.Plugs.NotAuthPipeline do
