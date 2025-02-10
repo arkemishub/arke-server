@@ -250,6 +250,51 @@ defmodule ArkeServer.AuthController do
         end
     end
   end
+  def signin(conn, %{"auth_token" => auth_token} = params) do
+    project = get_project(conn.assigns[:arke_project])
+
+    case QueryManager.get_by(project: project, arke_id: :temporary_token, id: auth_token) do
+      nil -> ResponseManager.send_resp(conn, 401, "Unauthorized")
+      temporary_token ->
+        case validate_temporary_token(temporary_token) do
+          {:error, errors} -> ResponseManager.send_resp(conn, 401, errors)
+          {:ok, _} ->
+            case get_member(project, temporary_token) do
+              {:error, errors} -> ResponseManager.send_resp(conn, 403, errors)
+              {:ok, member} ->
+                with {:ok, access_token, _claims} <- ArkeAuth.Guardian.encode_and_sign(member, %{}),
+                     {:ok, refresh_token, _claims} <- ArkeAuth.Guardian.encode_and_sign(member, %{}, token_type: "refresh")
+                  do
+                    manage_reusability(project, temporary_token)
+                    content = Map.merge(Arke.StructManager.encode(member, type: :json), %{
+                        access_token: access_token,
+                        refresh_token: refresh_token
+                      })
+                    update_member_access_time(member)
+                    ResponseManager.send_resp(conn, 200, %{content: content})
+                  else {:error, type} ->
+                    ResponseManager.send_resp(conn, 401, "Unauthorized")
+                  end
+            end
+        end
+    end
+  end
+
+  defp manage_reusability(project, %{data: %{is_reusable: false}}=token), do: QueryManager.delete(project, token)
+  defp manage_reusability(_project, _token), do: nil
+  defp validate_temporary_token(token) do
+    case NaiveDateTime.compare(token.data.expiration_datetime, NaiveDateTime.utc_now()) do
+      :lt -> Error.create(:auth, "token expired")
+      :gt -> {:ok, token}
+    end
+  end
+
+  defp get_member(project, token) do
+    case QueryManager.get_by(project: project, group: :arke_auth_member, id: token.data.link_member) do
+      member -> {:ok, member}
+      _ -> Error.create(:auth, "member not found")
+    end
+  end
 
   #### POST ######
   def signin(conn, %{"username" => username, "password" => password} = params) do
@@ -448,11 +493,12 @@ defmodule ArkeServer.AuthController do
   @doc """
   Refresh the JWT tokens. Returns 200 and the tokes if ok
   """
-  def refresh(conn, _) do
-    user = ArkeAuth.Guardian.Plug.current_resource(conn)
-    token = ArkeAuth.Guardian.Plug.current_token(conn)
+  def refresh(conn, %{"refresh_token" => refresh_token}) do
+    auth_conn = ArkeServer.Plugs.AuthPipeline.call(conn, [])
+    user = ArkeAuth.Guardian.Plug.current_resource(auth_conn)
 
-    Auth.refresh_tokens(user, token)
+
+    Auth.refresh_tokens(user, refresh_token)
     |> case do
       {:ok, access_token, refresh_token} ->
         ResponseManager.send_resp(conn, 200, %{
@@ -463,7 +509,10 @@ defmodule ArkeServer.AuthController do
         ResponseManager.send_resp(conn, 400, nil, error)
     end
   end
-
+  def refresh(conn, _params) do
+    {:error, msg} = Error.create(:auth, "missing 'refresh_token' params")
+    ResponseManager.send_resp(conn,400,msg)
+    end
   @doc """
   Verify if the token is still valid. Returns 200 if true
     - conn => %Plug.Conn{}
