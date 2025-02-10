@@ -24,15 +24,11 @@ defmodule ArkeServer.OAuth.Provider.Microsoft do
   def handle_request(
         %Plug.Conn{body_params: %{"id_token" => token, "access_token" => access_token}} = conn
       ) do
-    IO.inspect(token, label: "token")
-    IO.inspect(access_token, label: "access_token")
-
-    IO.inspect(verify_token(token), label: "verify_token")
-    IO.inspect(get_user_data(access_token), label: "get_user_data")
+    IO.inspect(decode_access_token(access_token), label: "decode_access_token")
 
     with {:ok, claims} <- verify_token(token),
-         {:ok, data} <- get_user_data(access_token) do
-      put_private(conn, @private_oauth_key, data)
+         {:ok, access_token_claims} <- decode_access_token(access_token) do
+      put_private(conn, @private_oauth_key, access_token_claims)
     else
       {:error, msg} ->
         Plug.Conn.assign(
@@ -51,22 +47,6 @@ defmodule ArkeServer.OAuth.Provider.Microsoft do
       :arke_server_oauth_failure,
       msg
     )
-  end
-
-  defp get_user_data(access_token) do
-    url = "https://graph.microsoft.com/v1.0/me"
-    headers = [{"Authorization", "Bearer #{access_token}"}]
-
-    case HTTPoison.get(url, headers) do
-      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
-        {:ok, Jason.decode!(body)}
-
-      {:ok, %HTTPoison.Response{status_code: status_code}} ->
-        {:error, "Failed to verify token, status code: #{status_code}"}
-
-      {:error, %HTTPoison.Error{reason: reason}} ->
-        {:error, reason}
-    end
   end
 
   defp verify_token(token) do
@@ -131,4 +111,9 @@ defmodule ArkeServer.OAuth.Provider.Microsoft do
   end
 
   defp get_key(key), do: System.get_env(key, nil)
+
+  defp decode_access_token(access_token) do
+    jwt = JOSE.JWT.peek(access_token)
+    {:ok, jwt.fields}
+  end
 end
