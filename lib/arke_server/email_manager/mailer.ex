@@ -25,14 +25,18 @@ defmodule ArkeServer.Mailer do
 
       defp get_email_struct(opts) do
         sender = get_sender(opts)
+        cc = Map.get(opts, :cc, nil)
         receiver = Map.fetch!(opts, :to)
         subject = Map.get(opts, :subject, "")
         text = Map.get(opts, :text, "")
+        attachments = Map.get(opts, :attachments, [])
         new()
         |> from(sender)
         |> to(receiver)
+        |> cc(cc)
         |> subject(subject)
         |> text_body(text)
+        |> add_attachments(attachments)
         |> parse_option(Map.to_list(opts))
       end
 
@@ -49,15 +53,14 @@ defmodule ArkeServer.Mailer do
         end
       end
 
+      # See https://hexdocs.pm/swoosh/Swoosh.Attachment.html
+      defp add_attachments(email, attachments) do
+        Enum.reduce(attachments, email, fn att, e -> attachment(e, att) end)
+      end
+
       defp parse_option(email, [{k, v} | t])
            when  not is_nil(v) do
         parse_option(put_provider_option(email, k, v), t)
-      end
-
-      # See https://hexdocs.pm/swoosh/Swoosh.Attachment.html
-      defp parse_option(email, [{:attachments, v} | t]) when not is_nil(v) do
-        attachment = Swoosh.Attachment.new(v)
-        parse_option(attachment(email, attachment), t)
       end
 
       defp parse_option(email, [h | t]), do: parse_option(email, t)
