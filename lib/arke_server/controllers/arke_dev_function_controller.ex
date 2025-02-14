@@ -4,7 +4,7 @@ defmodule ArkeServer.ArkeDevFunctionController do
 
   def export_arke_db_stucture(conn, params) do
     project = Map.get(params, "project", "arke_system") |> String.to_atom()
-    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+    member = ArkeAuth.Guardian.get_member(conn)
 
     case member.arke_id do
       :super_admin ->

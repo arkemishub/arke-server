@@ -99,7 +99,7 @@ defmodule ArkeServer.GroupController do
   ## get all the units of the arke inside the given group
   def get_unit(conn, %{"group_id" => group_id}) do
     project = conn.assigns[:arke_project]
-    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+    member = ArkeAuth.Guardian.get_member(conn, impersonate: true)
     permission = conn.assigns[:permission_filter] || %{filter: nil}
     offset = Map.get(conn.query_params, "offset", nil)
     limit = Map.get(conn.query_params, "limit", nil)
@@ -134,7 +134,7 @@ defmodule ArkeServer.GroupController do
   def unit_detail(conn, %{"group_id" => group_id, "unit_id" => unit_id}) do
     project = conn.assigns[:arke_project]
     permission = conn.assigns[:permission_filter] || %{filter: nil}
-    member = ArkeAuth.Guardian.Plug.current_resource(conn)
+    member = ArkeAuth.Guardian.get_member(conn, impersonate: true)
 
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
