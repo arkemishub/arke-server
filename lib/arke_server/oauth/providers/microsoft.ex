@@ -16,7 +16,7 @@ defmodule ArkeServer.OAuth.Provider.Microsoft do
   end
 
   def uid(conn) do
-    conn.private[@private_oauth_key]["id"]
+    conn.private[@private_oauth_key]["sub"]
   end
 
   def handle_cleanup(conn), do: put_private(conn, @private_oauth_key, nil)
@@ -24,8 +24,6 @@ defmodule ArkeServer.OAuth.Provider.Microsoft do
   def handle_request(
         %Plug.Conn{body_params: %{"id_token" => token, "access_token" => access_token}} = conn
       ) do
-    IO.inspect(decode_access_token(access_token), label: "decode_access_token")
-
     with {:ok, claims} <- verify_token(token),
          {:ok, access_token_claims} <- decode_access_token(access_token) do
       put_private(conn, @private_oauth_key, access_token_claims)
