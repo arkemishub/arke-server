@@ -57,7 +57,8 @@ defmodule ArkeServer.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     List.flatten([
-      {:phoenix, "~> 1.6.6"},
+      {:phoenix, "~> 1.7"},
+      {:phoenix_view, "~> 2.0"},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
