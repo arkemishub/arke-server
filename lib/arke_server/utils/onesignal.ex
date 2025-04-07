@@ -33,6 +33,17 @@ defmodule ArkeServer.Utils.OneSignal do
     call_api(:post, "/apps/#{app_id}/users", data)
   end
 
+  @doc """
+  Creates a OneSignal push notification
+
+  ## Parameter
+    - member => single member or list of members
+    - contents => %{key: value} => see OneSignal api docs for `contents` push notification map key.
+    This has been kept for retrocompatibility, passing `contents` as a `custom_data` map key should now
+    be preferred
+    - custom_data => %{key: value} => see OneSignal api docs for push notifications. These are options for
+    the soon-to-be-created notification
+  """
   def create_notification(member, contents, custom_data \\ %{})
 
   def create_notification(member, contents, custom_data) when is_map(member),
