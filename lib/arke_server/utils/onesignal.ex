@@ -36,7 +36,7 @@ defmodule ArkeServer.Utils.OneSignal do
   def create_notification(member, contents) when is_map(member),
     do: create_notification([member], contents)
 
-  def create_notification(members, contents) when is_list(members) do
+  def create_notification(members, contents, custom_data \\ %{}) when is_list(members) do
     external_id = Enum.map(members, fn m -> to_string(m.id) end)
     app_id = System.get_env("ONESIGNAL_APP_ID")
 
@@ -47,7 +47,7 @@ defmodule ArkeServer.Utils.OneSignal do
       contents: contents
     }
 
-    call_api(:post, "/notifications", data)
+    call_api(:post, "/notifications", Map.merge(data, custom_data))
   end
 
   defp call_api(method, path, body, opts \\ []) do
