@@ -19,9 +19,13 @@ defmodule ArkeServer.Utils.QueryOrder do
 
   def apply_order(query, [current | tail]) do
     case String.split(current, ";") do
-      [parameter, direction] ->
+      [parameter_id, direction] ->
+        parameters =
+          parameter_id
+          |> String.split(".")
+
         apply_order(
-          QueryManager.order(query, parameter, String.to_existing_atom(direction)),
+          QueryManager.order(query, parameters, String.to_existing_atom(direction)),
           tail
         )
 

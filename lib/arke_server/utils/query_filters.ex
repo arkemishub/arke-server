@@ -64,20 +64,21 @@ defmodule ArkeServer.Utils.QueryFilters do
         remove_match(match, acc)
       end)
       |> String.split(",")
-      |> Enum.reduce(%{error: [],operator: []},fn x,acc ->
+      |> Enum.reduce(%{error: [], operator: []}, fn x, acc ->
         case get_operator(x) do
           {:ok, op} ->
-            Map.update(acc,:operator,[],fn old ->  old ++ [op]end)
+            Map.update(acc, :operator, [], fn old -> old ++ [op] end)
 
           {:error, msg} ->
-            Map.update(acc,:error,[],fn old -> msg ++ old end)
+            Map.update(acc, :error, [], fn old -> msg ++ old end)
         end
       end)
 
-      errors = Map.get(operator_list,:error)
-      operators =  Map.get(operator_list,:operator)
-    if length(errors) >0 do
-      {:error,errors}
+    errors = Map.get(operator_list, :error)
+    operators = Map.get(operator_list, :operator)
+
+    if length(errors) > 0 do
+      {:error, errors}
     else
       filters =
         Enum.with_index(operators)
@@ -136,12 +137,37 @@ defmodule ArkeServer.Utils.QueryFilters do
   defp get_condition(conn, parameter_id, operator, value, negate) do
     project = conn.assigns[:arke_project]
 
-    case Arke.Boundary.ParameterManager.get(parameter_id, project) do
-      {:error, msg} ->
-        {:error, msg}
+    {parameter_id, path_ids} =
+      parameter_id
+      |> String.split(".")
+      |> List.pop_at(-1)
 
-      parameter ->
-        {:ok, QueryManager.condition(parameter, operator, parse_value(value, operator), negate)}
+    with {:ok, parameter} <- fetch_parameter(parameter_id, project),
+         {:ok, path} <- get_path_parameters(path_ids, project) do
+      {:ok,
+       QueryManager.condition(parameter, operator, parse_value(value, operator), negate, path)}
+    else
+      {:error, msg} -> {:error, msg}
+    end
+  end
+
+  defp get_path_parameters(path_ids, project) do
+    Enum.reduce_while(path_ids, {:ok, []}, fn path_id, {:ok, acc} ->
+      case fetch_parameter(path_id, project) do
+        {:ok, parameter} -> {:cont, {:ok, [parameter | acc]}}
+        {:error, msg} -> {:halt, {:error, msg}}
+      end
+    end)
+    |> case do
+      {:ok, path} -> {:ok, Enum.reverse(path)}
+      error -> error
+    end
+  end
+
+  defp fetch_parameter(parameter_id, project) do
+    case Arke.Boundary.ParameterManager.get(parameter_id, project) do
+      {:error, msg} -> {:error, msg}
+      parameter -> {:ok, parameter}
     end
   end
 
@@ -183,5 +209,6 @@ defmodule ArkeServer.Utils.QueryFilters do
   defp get_operator("in(" <> _rest), do: {:ok, :in}
   defp get_operator("isnull(" <> _rest), do: {:ok, :isnull}
 
-  defp get_operator(invalid_filter), do: Error.create(:filter, "filter `#{invalid_filter}` not available")
+  defp get_operator(invalid_filter),
+    do: Error.create(:filter, "filter `#{invalid_filter}` not available")
 end
