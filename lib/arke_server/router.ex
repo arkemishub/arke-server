@@ -51,6 +51,11 @@ defmodule ArkeServer.Router do
     plug(:put_secure_browser_headers)
   end
 
+  pipeline :browser_spex do
+    plug(:accepts, ["html"])
+    plug ArkeServer.Plugs.ContentSecurityPolicy
+  end
+
   pipeline :auth_api do
     plug(:accepts, ["json", "multipart"])
     plug(ArkeServer.Plugs.Permission)
@@ -71,17 +76,26 @@ defmodule ArkeServer.Router do
     plug(ArkeServer.Plugs.GetUnit)
   end
 
-  pipeline :openapi do
-    plug(OpenApiSpex.Plug.PutApiSpec, module: ArkeServer.ApiSpec)
+  pipeline :openapi_arkefunction do
+    plug(OpenApiSpex.Plug.PutApiSpec, module: ArkeServer.ApiSpecArkeFunction)
+  end
+
+  pipeline :openapi_customfunction do
+    plug(OpenApiSpex.Plug.PutApiSpec, module: ArkeServer.ApiSpecCustomFunction)
   end
 
   # ------ OPENAPI -------
 
   scope "/lib/doc" do
-    get("/swaggerui", OpenApiSpex.Plug.SwaggerUI, path: "/lib/doc/openapi")
+    pipe_through(:browser_spex)
+    get("/swaggerui", OpenApiSpex.Plug.SwaggerUI, path: "/lib/doc/openapi/arkefunction")
+    get("/swaggerui/custom", OpenApiSpex.Plug.SwaggerUI, path: "/lib/doc/openapi/customfunction")
 
-    pipe_through([:openapi])
-    get("/openapi", OpenApiSpex.Plug.RenderSpec, [])
+    pipe_through([:openapi_arkefunction])
+    get("/openapi/arkefunction", OpenApiSpex.Plug.RenderSpec, [])
+
+    pipe_through([:openapi_customfunction])
+    get("/openapi/customfunction", OpenApiSpex.Plug.RenderSpec, [])
   end
 
   scope "/lib", ArkeServer do
@@ -93,7 +107,7 @@ defmodule ArkeServer.Router do
       get("start", HealthController, :start)
     end
 
-    pipe_through([:openapi])
+    # pipe_through([:openapi])
 
     scope "/auth" do
       pipe_through([:project])

@@ -1,4 +1,4 @@
-defmodule ArkeServer.ApiSpec do
+defmodule ArkeServer.ApiSpecArkeFunction do
   alias OpenApiSpex.{
     Components,
     Info,
@@ -35,7 +35,6 @@ defmodule ArkeServer.ApiSpec do
       # Populate the paths from a phoenix router
       paths: Paths.from_router(Router)
     }
-    # Discover request/response schemas from path specs
     |> OpenApiSpex.resolve_schema_modules()
   end
 
