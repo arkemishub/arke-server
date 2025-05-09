@@ -330,13 +330,10 @@ defmodule ArkeServer.OAuthController do
   defp check_member(project, user) do
     case Auth.get_project_member(project, user) do
       {:ok, member} ->
-        IO.inspect(project)
-        IO.inspect(member)
         Auth.create_tokens(Auth.format_member(member), "default")
 
       # if not exists return {:ok,nil}
       {:error, [%{context: "auth", message: "member not exists"}]} ->
-        IO.inspect("member not exists")
         {:ok, nil}
 
       {:error, _msg} ->
