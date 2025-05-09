@@ -33,10 +33,23 @@ defmodule ArkeServer.Utils.OneSignal do
     call_api(:post, "/apps/#{app_id}/users", data)
   end
 
-  def create_notification(member, contents) when is_map(member),
-    do: create_notification([member], contents)
+  @doc """
+  Creates a OneSignal push notification
 
-  def create_notification(members, contents) when is_list(members) do
+  ## Parameter
+    - member => single member or list of members
+    - contents => %{key: value} => see OneSignal api docs for `contents` push notification map key.
+    This has been kept for retrocompatibility, passing `contents` as a `custom_data` map key should now
+    be preferred
+    - custom_data => %{key: value} => see OneSignal api docs for push notifications. These are options for
+    the soon-to-be-created notification
+  """
+  def create_notification(member, contents, custom_data \\ %{})
+
+  def create_notification(member, contents, custom_data) when is_map(member),
+    do: create_notification([member], contents, custom_data)
+
+  def create_notification(members, contents, custom_data) when is_list(members) do
     external_id = Enum.map(members, fn m -> to_string(m.id) end)
     app_id = System.get_env("ONESIGNAL_APP_ID")
 
@@ -47,7 +60,7 @@ defmodule ArkeServer.Utils.OneSignal do
       contents: contents
     }
 
-    call_api(:post, "/notifications", data)
+    call_api(:post, "/notifications", Map.merge(data, custom_data))
   end
 
   defp call_api(method, path, body, opts \\ []) do
