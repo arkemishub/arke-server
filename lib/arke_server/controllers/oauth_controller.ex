@@ -177,8 +177,11 @@ defmodule ArkeServer.OAuthController do
   # ------- end Using redirects -------
 
   defp init_oauth_flow(project, auth_info, provider) do
-    with {:ok, nil} <- check_provider(provider),
-         {:ok, user} <- check_oauth(auth_info) do
+    IO.inspect(project)
+    IO.inspect(auth_info)
+
+    with {:ok, nil} <- check_provider(provider) |> IO.inspect(),
+         {:ok, user} <- check_oauth(auth_info) |> IO.inspect() do
       case check_member(project, user) do
         # if member does not exists creat a SSO token
         {:ok, nil} ->
@@ -329,10 +332,17 @@ defmodule ArkeServer.OAuthController do
 
   defp check_member(project, user) do
     case Auth.get_project_member(project, user) do
-      {:ok, member} -> Auth.create_tokens(Auth.format_member(member), "default")
+      {:ok, member} ->
+        IO.inspect(project)
+        IO.inspect(member)
+        Auth.create_tokens(Auth.format_member(member), "default")
+
       # if not exists return {:ok,nil}
-      {:error, [%{context: "auth", message: "member not exists"}]} -> {:ok, nil}
-      {:error, _msg} -> Error.create(:auth, "unauthorized")
+      {:error, [%{context: "auth", message: "member not exists"}]} ->
+        {:ok, nil}
+
+      {:error, _msg} ->
+        Error.create(:auth, "unauthorized")
     end
   end
 
