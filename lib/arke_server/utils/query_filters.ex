@@ -125,8 +125,11 @@ defmodule ArkeServer.Utils.QueryFilters do
     case String.split(data, ",", parts: 2) do
       [parameter_id, value] ->
         case get_condition(conn, parameter_id, operator, value, negate) do
-          {:error, msg} -> {:error, msg}
-          {:ok, condition} -> {:ok, condition}
+          {:error, msg} ->
+            {:error, msg}
+
+          {:ok, condition} ->
+            {:ok, condition}
         end
 
       _ ->
