@@ -1,13 +1,12 @@
 defmodule ArkeServer.TopologyController do
   @moduledoc """
-             Documentation for  `ArkeServer.TopologyController`.
-             """
+  Documentation for  `ArkeServer.TopologyController`.
+  """
 
   use ArkeServer, :controller
 
   # Openapi request definition
   use ArkeServer.Openapi.Spec, module: ArkeServer.Openapi.TopologyControllerSpec
-
 
   alias Arke.{QueryManager, LinkManager, StructManager}
   alias Arke.Utils.ErrorGenerator, as: Error
@@ -19,10 +18,9 @@ defmodule ArkeServer.TopologyController do
   alias OpenApiSpex.{Operation, Reference}
 
   @doc """
-            Get the unit linked to an Arke
-       """
+       Get the unit linked to an Arke
+  """
   def get_node(conn, %{"arke_id" => _arke_id, "arke_unit_id" => _id, "direction" => direction}) do
-
     offset = Map.get(conn.query_params, "offset", nil)
     limit = Map.get(conn.query_params, "limit", nil)
     order = Map.get(conn.query_params, "order", [])
@@ -30,6 +28,7 @@ defmodule ArkeServer.TopologyController do
     # TODO handle query parameter with plugs
     load_links = Map.get(conn.query_params, "load_links", "false") == "true"
     load_values = Map.get(conn.query_params, "load_values", "false") == "true"
+    load_files = Map.get(conn.query_params, "load_files", "false") == "true"
 
     {count, units} =
       handle_get_node_query(conn, direction)
@@ -39,7 +38,12 @@ defmodule ArkeServer.TopologyController do
     ResponseManager.send_resp(conn, 200, %{
       count: count,
       items:
-        StructManager.encode(units, load_links: load_links, load_values: load_values, type: :json)
+        StructManager.encode(units,
+          load_links: load_links,
+          load_values: load_values,
+          load_files: load_files,
+          type: :json
+        )
     })
   end
 
@@ -51,24 +55,28 @@ defmodule ArkeServer.TopologyController do
 
     QueryManager.query(project: project)
     |> QueryManager.link(conn.assigns[:unit],
-         depth: depth,
-         direction: direction,
-         type: link_type
-       )
+      depth: depth,
+      direction: direction,
+      type: link_type
+    )
     |> QueryFilters.apply_query_filters(Map.get(conn.assigns, :filter))
   end
 
-  def get_node_count(conn, %{"arke_id" => _arke_id, "arke_unit_id" => _id, "direction" => direction}) do
-
-    count = handle_get_node_query(conn, direction)
-            |> QueryManager.count()
+  def get_node_count(conn, %{
+        "arke_id" => _arke_id,
+        "arke_unit_id" => _id,
+        "direction" => direction
+      }) do
+    count =
+      handle_get_node_query(conn, direction)
+      |> QueryManager.count()
 
     ResponseManager.send_resp(conn, 200, count)
   end
 
   @doc """
-       Link two unit together
-       """
+  Link two unit together
+  """
   def create_node(%Plug.Conn{body_params: params} = conn, %{
         "arke_id" => arke_id,
         "arke_id_two" => arke_id_two,
@@ -90,7 +98,11 @@ defmodule ArkeServer.TopologyController do
         ResponseManager.send_resp(
           conn,
           201,
-          StructManager.encode(unit, load_links: load_links, load_values: load_values, type: :json)
+          StructManager.encode(unit,
+            load_links: load_links,
+            load_values: load_values,
+            type: :json
+          )
         )
 
       {:error, error} ->
@@ -99,8 +111,8 @@ defmodule ArkeServer.TopologyController do
   end
 
   @doc """
-       Update metadata of an existing link
-       """
+  Update metadata of an existing link
+  """
 
   def update_node(%Plug.Conn{body_params: params} = conn, %{
         "arke_unit_id" => parent_id,
@@ -118,8 +130,8 @@ defmodule ArkeServer.TopologyController do
   end
 
   @doc """
-       Delete a connection between two units
-       """
+  Delete a connection between two units
+  """
   def delete_node(%Plug.Conn{body_params: params} = conn, %{
         "arke_id" => _arke_id,
         "arke_id_two" => _arke_id_two,
@@ -141,8 +153,8 @@ defmodule ArkeServer.TopologyController do
   end
 
   @doc """
-       Associate a parameter to an Arke
-       """
+  Associate a parameter to an Arke
+  """
   def add_parameter(%Plug.Conn{body_params: params} = conn, %{
         "arke_parameter_id" => parameter_id,
         "arke_id" => arke_id
@@ -173,8 +185,8 @@ defmodule ArkeServer.TopologyController do
   end
 
   @doc """
-       Update an associated parameter of an Arke
-       """
+  Update an associated parameter of an Arke
+  """
   def update_parameter(%Plug.Conn{body_params: params} = conn, %{
         "arke_parameter_id" => parameter_id,
         "arke_id" => arke_id
