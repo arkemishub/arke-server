@@ -88,6 +88,7 @@ defmodule ArkeServer.Router do
     # -------- AUTH --------
 
     scope "/health" do
+      get("/", HealthController, :live)
       get("ready", HealthController, :ready)
       get("live", HealthController, :live)
       get("start", HealthController, :start)
