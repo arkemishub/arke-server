@@ -196,6 +196,7 @@ defmodule ArkeServer.Utils.QueryFilters do
   defp get_operator("not(" <> _rest), do: {:ok, :not}
 
   defp get_operator("eq(" <> _rest), do: {:ok, :eq}
+  defp get_operator("ieq(" <> _rest), do: {:ok, :ieq}
   defp get_operator("contains(" <> _rest), do: {:ok, :contains}
   defp get_operator("icontains(" <> _rest), do: {:ok, :icontains}
   defp get_operator("startswith(" <> _rest), do: {:ok, :startswith}
